@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import { Save, Loader2, Zap, MessageSquare, DollarSign, Shield } from 'lucide-react';
+import { Save, Loader2, Zap, MessageSquare, DollarSign, Shield, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
-import type { Workspace, AITone } from '@/types/database';
+
+type AITone = 'professional' | 'friendly' | 'casual' | 'aggressive';
 
 const tones: { value: AITone; label: string; description: string }[] = [
   { value: 'professional', label: 'Professional', description: 'Formal and business-focused' },
@@ -14,7 +14,6 @@ const tones: { value: AITone; label: string; description: string }[] = [
 ];
 
 export default function AISettingsPage() {
-  const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -26,57 +25,45 @@ export default function AISettingsPage() {
   const [objectionHandling, setObjectionHandling] = useState('');
   const [bookingLink, setBookingLink] = useState('');
 
-  const supabase = createClient();
-
   useEffect(() => {
     loadWorkspace();
   }, []);
 
   const loadWorkspace = async () => {
+    setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const res = await fetch('/api/workspace/settings');
+      const data = await res.json();
 
-      const { data: membership } = await supabase
-        .from('workspace_members')
-        .select('workspace_id')
-        .eq('user_id', user.id)
-        .limit(1)
-        .single();
-
-      if (!membership) return;
-
-      const { data: ws } = await supabase
-        .from('workspaces')
-        .select('*')
-        .eq('id', membership.workspace_id)
-        .single();
-
-      if (ws) {
-        setWorkspace(ws);
-        setAiEnabled(ws.ai_enabled);
-        setTone(ws.ai_tone);
+      if (res.ok && data.workspace) {
+        const ws = data.workspace;
+        setAiEnabled(ws.ai_enabled ?? true);
+        setTone(ws.ai_tone || 'professional');
         setSystemPrompt(ws.ai_system_prompt || '');
         setOfferDetails(ws.ai_offer_details || '');
         setPricingInfo(ws.ai_pricing_info || '');
         setObjectionHandling(ws.ai_objection_handling || '');
         setBookingLink(ws.booking_link || '');
+      } else {
+        console.error('Failed to load workspace:', data);
+        toast.error('Failed to load settings');
       }
     } catch (error) {
       console.error('Error loading workspace:', error);
+      toast.error('Connection error');
     } finally {
       setLoading(false);
     }
   };
 
   const handleSave = async () => {
-    if (!workspace) return;
     setSaving(true);
 
     try {
-      const { error } = await supabase
-        .from('workspaces')
-        .update({
+      const res = await fetch('/api/workspace/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           ai_enabled: aiEnabled,
           ai_tone: tone,
           ai_system_prompt: systemPrompt,
@@ -84,14 +71,18 @@ export default function AISettingsPage() {
           ai_pricing_info: pricingInfo,
           ai_objection_handling: objectionHandling,
           booking_link: bookingLink,
-        })
-        .eq('id', workspace.id);
+        }),
+      });
 
-      if (error) throw error;
+      const data = await res.json();
 
-      toast.success('AI settings saved successfully!');
+      if (res.ok && data.success) {
+        toast.success('AI settings saved!');
+      } else {
+        toast.error(data.error || 'Failed to save');
+      }
     } catch (error: any) {
-      toast.error(error.message);
+      toast.error('Connection error');
     } finally {
       setSaving(false);
     }
@@ -107,11 +98,20 @@ export default function AISettingsPage() {
 
   return (
     <div className="space-y-6 animate-in max-w-4xl">
-      <div>
-        <h1 className="text-3xl font-bold text-white">AI Configuration</h1>
-        <p className="text-dark-400 mt-1">
-          Customize how AI responds to your leads
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white">AI Configuration</h1>
+          <p className="text-dark-400 mt-1">
+            Customize how AI responds to your leads
+          </p>
+        </div>
+        <button
+          onClick={loadWorkspace}
+          className="btn btn-secondary btn-sm"
+          title="Refresh"
+        >
+          <RefreshCw className="w-4 h-4" />
+        </button>
       </div>
 
       {/* AI Toggle */}
@@ -198,7 +198,7 @@ export default function AISettingsPage() {
           value={offerDetails}
           onChange={(e) => setOfferDetails(e.target.value)}
           className="input min-h-[120px]"
-          placeholder="We help businesses establish credit, secure funding, and build financial foundations..."
+          placeholder="Describe your services..."
         />
       </div>
 
@@ -212,7 +212,7 @@ export default function AISettingsPage() {
           value={pricingInfo}
           onChange={(e) => setPricingInfo(e.target.value)}
           className="input min-h-[100px]"
-          placeholder="Our services start at $X. Final pricing depends on your specific needs, which we'll discuss on our call."
+          placeholder="Our pricing information..."
         />
       </div>
 
@@ -229,9 +229,7 @@ export default function AISettingsPage() {
           value={objectionHandling}
           onChange={(e) => setObjectionHandling(e.target.value)}
           className="input min-h-[150px]"
-          placeholder={`- If they say "too expensive": Emphasize ROI and value
-- If they say "need to think": Create urgency, offer to answer questions
-- If they're not interested: Ask what would make it valuable to them`}
+          placeholder="How to handle objections..."
         />
       </div>
 
