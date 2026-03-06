@@ -256,7 +256,6 @@ export default function TemplatesPage() {
     setApplying(true);
 
     try {
-      // In production, this would update the workspace settings
       const res = await fetch('/api/workspace/settings', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -269,14 +268,18 @@ export default function TemplatesPage() {
         }),
       });
 
-      if (res.ok) {
+      const data = await res.json();
+
+      if (res.ok && data.success) {
         toast.success(`${template.name} template applied!`);
         setSelectedTemplate(null);
       } else {
-        toast.error('Failed to apply template');
+        console.error('Template apply error:', data);
+        toast.error(data.error || 'Failed to apply template');
       }
-    } catch (error) {
-      toast.error('Something went wrong');
+    } catch (error: any) {
+      console.error('Template error:', error);
+      toast.error('Connection error. Please try again.');
     }
 
     setApplying(false);
