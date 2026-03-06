@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Calendar, Clock, User, Phone, Mail, MapPin, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Calendar, Clock, User, Phone, Plus, ChevronLeft, ChevronRight, X, Loader2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, isSameDay, addMonths, subMonths } from 'date-fns';
 import toast from 'react-hot-toast';
@@ -15,51 +15,147 @@ interface Appointment {
   status: string;
   meeting_link: string | null;
   leads: {
+    id: string;
     name: string;
     email: string;
     phone: string;
-  };
+  } | null;
+}
+
+interface Lead {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
 }
 
 export default function AppointmentsPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [workspaceId, setWorkspaceId] = useState<string | null>(null);
+  const [newAppointment, setNewAppointment] = useState({
+    lead_id: '',
+    title: '',
+    description: '',
+    date: format(new Date(), 'yyyy-MM-dd'),
+    time: '10:00',
+    duration_minutes: 30,
+    meeting_link: '',
+  });
   const supabase = createClient();
 
   useEffect(() => {
-    fetchAppointments();
-  }, [currentMonth]);
+    loadWorkspace();
+  }, []);
 
-  const fetchAppointments = async () => {
-    setLoading(true);
-    const start = startOfMonth(currentMonth);
-    const end = endOfMonth(currentMonth);
+  useEffect(() => {
+    if (workspaceId) {
+      fetchAppointments();
+      fetchLeads();
+    }
+  }, [workspaceId, currentMonth]);
+
+  const loadWorkspace = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
 
     const { data: membership } = await supabase
       .from('workspace_members')
       .select('workspace_id')
+      .eq('user_id', user.id)
       .limit(1)
       .single();
 
     if (membership) {
-      const { data, error } = await supabase
-        .from('appointments')
-        .select(`
-          *,
-          leads (name, email, phone)
-        `)
-        .eq('workspace_id', membership.workspace_id)
-        .gte('scheduled_at', start.toISOString())
-        .lte('scheduled_at', end.toISOString())
-        .order('scheduled_at', { ascending: true });
+      setWorkspaceId(membership.workspace_id);
+    } else {
+      setLoading(false);
+    }
+  };
 
-      if (!error && data) {
-        setAppointments(data);
-      }
+  const fetchLeads = async () => {
+    if (!workspaceId) return;
+
+    const { data } = await supabase
+      .from('leads')
+      .select('id, name, email, phone')
+      .eq('workspace_id', workspaceId)
+      .order('name');
+
+    if (data) {
+      setLeads(data);
+    }
+  };
+
+  const fetchAppointments = async () => {
+    if (!workspaceId) return;
+    setLoading(true);
+    const start = startOfMonth(currentMonth);
+    const end = endOfMonth(currentMonth);
+
+    const { data, error } = await supabase
+      .from('appointments')
+      .select(`
+        *,
+        leads (id, name, email, phone)
+      `)
+      .eq('workspace_id', workspaceId)
+      .gte('scheduled_at', start.toISOString())
+      .lte('scheduled_at', end.toISOString())
+      .order('scheduled_at', { ascending: true });
+
+    if (!error && data) {
+      setAppointments(data);
     }
     setLoading(false);
+  };
+
+  const handleAddAppointment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!workspaceId) {
+      toast.error('No workspace found');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const scheduledAt = new Date(`${newAppointment.date}T${newAppointment.time}`);
+
+      const { error } = await supabase.from('appointments').insert({
+        workspace_id: workspaceId,
+        lead_id: newAppointment.lead_id || null,
+        title: newAppointment.title,
+        description: newAppointment.description || null,
+        scheduled_at: scheduledAt.toISOString(),
+        duration_minutes: newAppointment.duration_minutes,
+        meeting_link: newAppointment.meeting_link || null,
+        status: 'scheduled',
+      });
+
+      if (error) throw error;
+
+      toast.success('Appointment scheduled!');
+      setShowAddModal(false);
+      setNewAppointment({
+        lead_id: '',
+        title: '',
+        description: '',
+        date: format(new Date(), 'yyyy-MM-dd'),
+        time: '10:00',
+        duration_minutes: 30,
+        meeting_link: '',
+      });
+      fetchAppointments();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to create appointment');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const updateStatus = async (id: string, status: string) => {
@@ -72,6 +168,22 @@ export default function AppointmentsPage() {
       toast.error('Failed to update appointment');
     } else {
       toast.success('Appointment updated');
+      fetchAppointments();
+    }
+  };
+
+  const deleteAppointment = async (id: string) => {
+    if (!confirm('Delete this appointment?')) return;
+
+    const { error } = await supabase
+      .from('appointments')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      toast.error('Failed to delete');
+    } else {
+      toast.success('Appointment deleted');
       fetchAppointments();
     }
   };
@@ -97,12 +209,12 @@ export default function AppointmentsPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-bold text-white">Appointments</h1>
           <p className="text-dark-400 mt-1">Manage your scheduled appointments</p>
         </div>
-        <button className="btn btn-primary">
+        <button onClick={() => setShowAddModal(true)} className="btn btn-primary">
           <Plus className="w-4 h-4 mr-2" />
           New Appointment
         </button>
@@ -169,7 +281,9 @@ export default function AppointmentsPage() {
           </h3>
 
           {loading ? (
-            <div className="text-center py-8 text-dark-400">Loading...</div>
+            <div className="text-center py-8 text-dark-400">
+              <Loader2 className="w-6 h-6 animate-spin mx-auto" />
+            </div>
           ) : selectedDate ? (
             selectedDayAppointments.length > 0 ? (
               <div className="space-y-4">
@@ -188,7 +302,7 @@ export default function AppointmentsPage() {
                       </div>
                       <div className="flex items-center gap-2">
                         <User className="w-4 h-4" />
-                        {apt.leads?.name || 'Unknown'}
+                        {apt.leads?.name || 'No lead assigned'}
                       </div>
                       {apt.leads?.phone && (
                         <div className="flex items-center gap-2">
@@ -197,22 +311,38 @@ export default function AppointmentsPage() {
                         </div>
                       )}
                     </div>
-                    {apt.status === 'scheduled' && (
-                      <div className="flex gap-2 mt-3">
+                    <div className="flex flex-wrap gap-2 mt-3">
+                      {apt.status === 'scheduled' && (
+                        <>
+                          <button
+                            onClick={() => updateStatus(apt.id, 'confirmed')}
+                            className="text-xs px-3 py-1 bg-emerald-500/20 text-emerald-400 rounded hover:bg-emerald-500/30"
+                          >
+                            Confirm
+                          </button>
+                          <button
+                            onClick={() => updateStatus(apt.id, 'cancelled')}
+                            className="text-xs px-3 py-1 bg-red-500/20 text-red-400 rounded hover:bg-red-500/30"
+                          >
+                            Cancel
+                          </button>
+                        </>
+                      )}
+                      {apt.status === 'confirmed' && (
                         <button
-                          onClick={() => updateStatus(apt.id, 'confirmed')}
+                          onClick={() => updateStatus(apt.id, 'completed')}
                           className="text-xs px-3 py-1 bg-emerald-500/20 text-emerald-400 rounded hover:bg-emerald-500/30"
                         >
-                          Confirm
+                          Mark Complete
                         </button>
-                        <button
-                          onClick={() => updateStatus(apt.id, 'cancelled')}
-                          className="text-xs px-3 py-1 bg-red-500/20 text-red-400 rounded hover:bg-red-500/30"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    )}
+                      )}
+                      <button
+                        onClick={() => deleteAppointment(apt.id)}
+                        className="text-xs px-3 py-1 bg-dark-700 text-dark-400 rounded hover:bg-dark-600"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -220,6 +350,19 @@ export default function AppointmentsPage() {
               <div className="text-center py-8 text-dark-400">
                 <Calendar className="w-12 h-12 mx-auto mb-2 opacity-50" />
                 <p>No appointments on this day</p>
+                <button
+                  onClick={() => {
+                    setNewAppointment(prev => ({
+                      ...prev,
+                      date: format(selectedDate, 'yyyy-MM-dd')
+                    }));
+                    setShowAddModal(true);
+                  }}
+                  className="btn btn-secondary btn-sm mt-3"
+                >
+                  <Plus className="w-4 h-4 mr-1" />
+                  Add
+                </button>
               </div>
             )
           ) : (
@@ -231,49 +374,132 @@ export default function AppointmentsPage() {
         </div>
       </div>
 
-      {/* Upcoming Appointments List */}
-      <div className="card mt-6">
-        <h3 className="text-lg font-semibold text-white mb-4">All Appointments This Month</h3>
-        {loading ? (
-          <div className="text-center py-8 text-dark-400">Loading...</div>
-        ) : appointments.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-dark-700">
-                  <th className="text-left py-3 px-4 text-sm font-medium text-dark-400">Date & Time</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-dark-400">Title</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-dark-400">Lead</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-dark-400">Duration</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-dark-400">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {appointments.map((apt) => (
-                  <tr key={apt.id} className="border-b border-dark-800 hover:bg-dark-800/50">
-                    <td className="py-3 px-4 text-white">
-                      {format(new Date(apt.scheduled_at), 'MMM d, h:mm a')}
-                    </td>
-                    <td className="py-3 px-4 text-white">{apt.title}</td>
-                    <td className="py-3 px-4 text-dark-300">{apt.leads?.name || 'Unknown'}</td>
-                    <td className="py-3 px-4 text-dark-400">{apt.duration_minutes} min</td>
-                    <td className="py-3 px-4">
-                      <span className={`text-xs px-2 py-1 rounded-full ${statusColors[apt.status]}`}>
-                        {apt.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {/* Add Appointment Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="bg-dark-900 border border-dark-800 rounded-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-4 sm:p-6 border-b border-dark-800 flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-white">Schedule Appointment</h2>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="p-2 hover:bg-dark-800 rounded-lg text-dark-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleAddAppointment} className="p-4 sm:p-6 space-y-4">
+              <div>
+                <label className="label">Title *</label>
+                <input
+                  type="text"
+                  value={newAppointment.title}
+                  onChange={(e) => setNewAppointment({ ...newAppointment, title: e.target.value })}
+                  className="input"
+                  placeholder="Consultation Call"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="label">Select Lead (optional)</label>
+                <select
+                  value={newAppointment.lead_id}
+                  onChange={(e) => setNewAppointment({ ...newAppointment, lead_id: e.target.value })}
+                  className="input"
+                >
+                  <option value="">-- No lead --</option>
+                  {leads.map((lead) => (
+                    <option key={lead.id} value={lead.id}>
+                      {lead.name} ({lead.email})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="label">Date *</label>
+                  <input
+                    type="date"
+                    value={newAppointment.date}
+                    onChange={(e) => setNewAppointment({ ...newAppointment, date: e.target.value })}
+                    className="input"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="label">Time *</label>
+                  <input
+                    type="time"
+                    value={newAppointment.time}
+                    onChange={(e) => setNewAppointment({ ...newAppointment, time: e.target.value })}
+                    className="input"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="label">Duration</label>
+                <select
+                  value={newAppointment.duration_minutes}
+                  onChange={(e) => setNewAppointment({ ...newAppointment, duration_minutes: parseInt(e.target.value) })}
+                  className="input"
+                >
+                  <option value={15}>15 minutes</option>
+                  <option value={30}>30 minutes</option>
+                  <option value={45}>45 minutes</option>
+                  <option value={60}>1 hour</option>
+                  <option value={90}>1.5 hours</option>
+                  <option value={120}>2 hours</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="label">Meeting Link (optional)</label>
+                <input
+                  type="url"
+                  value={newAppointment.meeting_link}
+                  onChange={(e) => setNewAppointment({ ...newAppointment, meeting_link: e.target.value })}
+                  className="input"
+                  placeholder="https://zoom.us/j/..."
+                />
+              </div>
+
+              <div>
+                <label className="label">Description (optional)</label>
+                <textarea
+                  value={newAppointment.description}
+                  onChange={(e) => setNewAppointment({ ...newAppointment, description: e.target.value })}
+                  className="input min-h-[80px]"
+                  placeholder="Notes about this appointment..."
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="btn btn-secondary flex-1"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="btn btn-primary flex-1"
+                >
+                  {saving ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    'Schedule'
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
-        ) : (
-          <div className="text-center py-8 text-dark-400">
-            <Calendar className="w-12 h-12 mx-auto mb-2 opacity-50" />
-            <p>No appointments scheduled this month</p>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
