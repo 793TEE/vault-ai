@@ -1,10 +1,13 @@
 import Link from 'next/link';
 import { ArrowRight, Zap, MessageSquare, Calendar, BarChart3, Shield, Clock } from 'lucide-react';
 import NewsletterForm from '@/components/NewsletterForm';
+import PromoWrapper from '@/components/PromoWrapper';
 
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-dark-950">
+      {/* Cross-Promotion Popups & Banners */}
+      <PromoWrapper />
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 glass border-b border-dark-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

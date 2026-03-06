@@ -12,6 +12,8 @@ import {
   Zap,
   LogOut,
   ChevronDown,
+  Layers,
+  Shield,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -22,20 +24,26 @@ const navItems = [
   { href: '/conversations', icon: MessageSquare, label: 'Conversations' },
   { href: '/appointments', icon: Calendar, label: 'Appointments' },
   { href: '/analytics', icon: BarChart3, label: 'Analytics' },
+  { href: '/settings/templates', icon: Layers, label: 'AI Templates' },
   { href: '/settings', icon: Settings, label: 'Settings' },
 ];
+
+// Admin emails that can access admin panel
+const ADMIN_EMAILS = ['infohissecretvault23@gmail.com'];
 
 interface SidebarProps {
   workspace?: {
     name: string;
     subscription_plan: string;
   };
+  userEmail?: string;
 }
 
-export default function Sidebar({ workspace }: SidebarProps) {
+export default function Sidebar({ workspace, userEmail }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
+  const isAdmin = userEmail && ADMIN_EMAILS.includes(userEmail);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -94,6 +102,19 @@ export default function Sidebar({ workspace }: SidebarProps) {
             </Link>
           );
         })}
+
+        {/* Admin Link - Only for admins */}
+        {isAdmin && (
+          <Link
+            href="/admin"
+            className={`sidebar-link mt-4 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 ${
+              pathname === '/admin' ? 'bg-amber-500/10' : ''
+            }`}
+          >
+            <Shield className="w-5 h-5" />
+            Admin Panel
+          </Link>
+        )}
       </nav>
 
       {/* User Section */}

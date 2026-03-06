@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { Copy, Check, Code, ExternalLink, Loader2 } from 'lucide-react';
+import { Copy, Check, Code, ExternalLink, Loader2, MessageCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function EmbedSettingsPage() {
@@ -91,6 +91,16 @@ Body:
   "new_status": "qualified",
   "timestamp": "2024-01-15T10:30:00Z"
 }`;
+
+  const chatWidgetCode = `<!-- Vault AI Chat Widget -->
+<script>
+  (function(w,d,s,o,f,js,fjs){
+    w['VaultAI']=o;w[o]=w[o]||function(){(w[o].q=w[o].q||[]).push(arguments)};
+    js=d.createElement(s);fjs=d.getElementsByTagName(s)[0];
+    js.id=o;js.src=f;js.async=1;fjs.parentNode.insertBefore(js,fjs);
+  }(window,document,'script','vaultai','${appUrl}/chat-widget.js'));
+  vaultai('init', '${workspaceId}');
+</script>`;
 
   return (
     <div className="space-y-6 animate-in max-w-4xl">
@@ -183,6 +193,38 @@ Body:
             )}
           </button>
         </div>
+      </div>
+
+      {/* Chat Widget */}
+      <div className="card border-2 border-primary-500/30 bg-gradient-to-br from-primary-900/10 to-dark-900">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 bg-primary-500/20 rounded-lg flex items-center justify-center">
+            <MessageCircle className="w-5 h-5 text-primary-400" />
+          </div>
+          <div>
+            <h3 className="text-lg font-medium text-white">Live Chat Widget</h3>
+            <p className="text-dark-400 text-sm">Add a chat bubble to your website - AI responds instantly</p>
+          </div>
+          <span className="ml-auto px-2 py-1 bg-primary-500/20 text-primary-400 text-xs font-medium rounded-full">NEW</span>
+        </div>
+        <div className="relative">
+          <pre className="bg-dark-800 p-4 rounded-lg text-sm overflow-x-auto text-dark-300">
+            {chatWidgetCode}
+          </pre>
+          <button
+            onClick={() => copyToClipboard(chatWidgetCode, 'chat')}
+            className="absolute top-2 right-2 p-2 bg-dark-700 rounded-lg hover:bg-dark-600"
+          >
+            {copied === 'chat' ? (
+              <Check className="w-4 h-4 text-emerald-400" />
+            ) : (
+              <Copy className="w-4 h-4 text-dark-400" />
+            )}
+          </button>
+        </div>
+        <p className="text-dark-500 text-xs mt-3">
+          Place this code before the closing &lt;/body&gt; tag on your website
+        </p>
       </div>
 
       {/* Webhook */}
