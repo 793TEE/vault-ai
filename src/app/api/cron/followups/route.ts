@@ -4,6 +4,9 @@ import { sendSMS } from '@/lib/twilio';
 import { sendEmail } from '@/lib/sendgrid';
 import { generateFollowUpMessage } from '@/lib/openai';
 
+// Mark as dynamic to prevent static generation
+export const dynamic = 'force-dynamic';
+
 // This endpoint should be called by Vercel Cron or similar
 // Add to vercel.json:
 // {
