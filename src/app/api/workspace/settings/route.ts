@@ -167,6 +167,7 @@ function buildUpdateData(body: any): Record<string, any> {
     'ai_pricing_info',
     'ai_objection_handling',
     'sendgrid_from_email',
+    'industry_template',
   ];
 
   const updateData: Record<string, any> = {};

@@ -49,10 +49,10 @@ export default function PrivacyPage() {
           </ul>
 
           <h2 className="text-xl font-semibold text-white mt-8">5. Your Rights</h2>
-          <p>You have the right to access, correct, or delete your personal information. Contact us at privacy@vaultai.com to exercise these rights.</p>
+          <p>You have the right to access, correct, or delete your personal information. Contact us at privacy@hissecretvault.net to exercise these rights.</p>
 
           <h2 className="text-xl font-semibold text-white mt-8">6. Contact</h2>
-          <p>For privacy questions, contact us at privacy@vaultai.com</p>
+          <p>For privacy questions, contact us at privacy@hissecretvault.net</p>
         </div>
       </main>
     </div>

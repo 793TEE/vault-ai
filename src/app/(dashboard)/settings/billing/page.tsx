@@ -84,7 +84,7 @@ export default function BillingPage() {
   };
 
   const handleUpgrade = async (plan: string) => {
-    toast.success(`To upgrade to ${plan}, please contact support@vaultai.com`);
+    toast.success(`To upgrade to ${plan}, please contact support@hissecretvault.net`);
   };
 
   if (loading) {

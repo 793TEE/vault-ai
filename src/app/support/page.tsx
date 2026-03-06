@@ -1,9 +1,13 @@
+'use client';
+
 import Link from 'next/link';
-import { Zap, Mail, MessageSquare, FileText, ExternalLink } from 'lucide-react';
+import { Zap, Mail, MessageSquare, FileText, ExternalLink, Copy } from 'lucide-react';
+import toast, { Toaster } from 'react-hot-toast';
 
 export default function SupportPage() {
   return (
     <div className="min-h-screen bg-dark-950">
+      <Toaster position="top-center" />
       <nav className="border-b border-dark-800 px-6 py-4">
         <Link href="/" className="flex items-center gap-2 w-fit">
           <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-primary-700 rounded-lg flex items-center justify-center">
@@ -20,14 +24,23 @@ export default function SupportPage() {
         </div>
 
         <div className="grid md:grid-cols-3 gap-6 mb-12">
-          <a href="mailto:support@vaultai.com" className="card hover:border-primary-500/50 transition-colors group">
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText('support@hissecretvault.net');
+              toast.success('Email copied to clipboard!');
+            }}
+            className="card hover:border-primary-500/50 transition-colors group text-left"
+          >
             <div className="w-12 h-12 bg-primary-500/10 rounded-lg flex items-center justify-center mb-4 group-hover:bg-primary-500/20">
               <Mail className="w-6 h-6 text-primary-400" />
             </div>
             <h3 className="text-lg font-semibold text-white mb-2">Email Support</h3>
             <p className="text-dark-400 text-sm">Get help via email within 24 hours</p>
-            <p className="text-primary-400 text-sm mt-2">support@vaultai.com</p>
-          </a>
+            <div className="flex items-center gap-2 mt-2">
+              <p className="text-primary-400 text-sm">support@hissecretvault.net</p>
+              <Copy className="w-4 h-4 text-primary-400" />
+            </div>
+          </button>
 
           <div className="card">
             <div className="w-12 h-12 bg-emerald-500/10 rounded-lg flex items-center justify-center mb-4">

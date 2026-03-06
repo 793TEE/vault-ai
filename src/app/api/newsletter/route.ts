@@ -8,7 +8,7 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // SendGrid for welcome emails
 const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY || '';
-const FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL || 'noreply@vaultai.com';
+const FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL || 'noreply@hissecretvault.net';
 
 async function sendWelcomeEmail(email: string, name?: string) {
   if (!SENDGRID_API_KEY) return false;
@@ -30,12 +30,12 @@ async function sendWelcomeEmail(email: string, name?: string) {
           <li>Exclusive offers</li>
         </ul>
         <div style="text-align: center; margin: 30px 0;">
-          <a href="https://vaultai.com" style="background: #6366f1; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">Get Started</a>
+          <a href="https://hissecretvault.net" style="background: #6366f1; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">Get Started</a>
         </div>
       </div>
       <div style="background: #111; padding: 20px; text-align: center; border-radius: 0 0 10px 10px;">
         <p style="color: #666; font-size: 12px; margin: 0;">
-          <a href="https://vaultai.com/api/newsletter/unsubscribe?email=${email}" style="color: #666;">Unsubscribe</a>
+          <a href="https://hissecretvault.net/api/newsletter/unsubscribe?email=${email}" style="color: #666;">Unsubscribe</a>
         </p>
       </div>
     </div>
@@ -140,7 +140,7 @@ export async function GET(request: NextRequest) {
       <body style="font-family: Arial; text-align: center; padding: 50px; background: #1a1a2e; color: white;">
         <h1>You've been unsubscribed</h1>
         <p>You will no longer receive our newsletter.</p>
-        <a href="https://vaultai.com" style="color: #6366f1;">Return to Vault AI</a>
+        <a href="https://hissecretvault.net" style="color: #6366f1;">Return to Vault AI</a>
       </body>
       </html>
     `, {

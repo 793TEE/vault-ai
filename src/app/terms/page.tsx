@@ -44,7 +44,7 @@ export default function TermsPage() {
           <p>Vault AI is provided "as is" without warranties. We are not liable for any indirect, incidental, or consequential damages arising from your use of the service.</p>
 
           <h2 className="text-xl font-semibold text-white mt-8">7. Contact</h2>
-          <p>For questions about these terms, contact us at support@vaultai.com</p>
+          <p>For questions about these terms, contact us at support@hissecretvault.net</p>
         </div>
       </main>
     </div>
