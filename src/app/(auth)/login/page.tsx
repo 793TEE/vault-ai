@@ -19,19 +19,20 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) throw error;
 
-      toast.success('Welcome back!');
-      router.push('/dashboard');
-      router.refresh();
+      if (data.session) {
+        toast.success('Welcome back!');
+        // Use window.location for a full page navigation to ensure session is properly loaded
+        window.location.href = '/dashboard';
+      }
     } catch (error: any) {
       toast.error(error.message || 'Failed to login');
-    } finally {
       setLoading(false);
     }
   };
