@@ -997,7 +997,7 @@ export default function TemplatesPage() {
   const getCurrentWizardOptions = () => {
     const question = onboardingQuestions[wizardStep];
     if (question.dependsOn && question.optionsByParent) {
-      const parentAnswer = wizardAnswers[question.dependsOn];
+      const parentAnswer = wizardAnswers[question.dependsOn] as keyof typeof question.optionsByParent;
       return question.optionsByParent[parentAnswer] || [];
     }
     return question.options || [];
