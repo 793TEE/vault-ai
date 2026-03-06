@@ -20,7 +20,7 @@ export default function SignupPage() {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -33,11 +33,17 @@ export default function SignupPage() {
 
       if (error) throw error;
 
-      toast.success('Check your email to confirm your account!');
-      router.push('/login?message=Check your email to confirm your account');
+      // If session exists, user was auto-logged in (email confirmation disabled)
+      if (data.session) {
+        toast.success('Account created! Welcome to Vault AI!');
+        window.location.href = '/dashboard';
+      } else {
+        // Email confirmation is required
+        toast.success('Check your email to confirm your account!');
+        router.push('/login?message=Check your email to confirm your account');
+      }
     } catch (error: any) {
       toast.error(error.message || 'Failed to sign up');
-    } finally {
       setLoading(false);
     }
   };
