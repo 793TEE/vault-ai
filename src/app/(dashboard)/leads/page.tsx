@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
 import {
   Search,
   Filter,
@@ -60,7 +59,6 @@ const statusLabels: Record<LeadStatus, string> = {
 export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
-  const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<LeadStatus | 'all'>('all');
   const [page, setPage] = useState(1);
@@ -77,68 +75,33 @@ export default function LeadsPage() {
     source: 'manual',
   });
 
-  const supabase = createClient();
   const limit = 20;
 
   useEffect(() => {
-    loadWorkspace();
-  }, []);
-
-  useEffect(() => {
-    if (workspaceId) {
-      loadLeads();
-    }
-  }, [workspaceId, page, statusFilter]);
-
-  const loadWorkspace = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const { data: membership, error } = await supabase
-      .from('workspace_members')
-      .select('workspace_id')
-      .eq('user_id', user.id)
-      .limit(1)
-      .single();
-
-    if (error) {
-      console.error('Error loading workspace:', error);
-      toast.error('Unable to load workspace. Please check your database setup.');
-      setLoading(false);
-      return;
-    }
-
-    if (membership) {
-      setWorkspaceId(membership.workspace_id);
-    }
-  };
+    loadLeads();
+  }, [page, statusFilter]);
 
   const loadLeads = async () => {
-    if (!workspaceId) return;
     setLoading(true);
-
     try {
-      let query = supabase
-        .from('leads')
-        .select('*', { count: 'exact' })
-        .eq('workspace_id', workspaceId)
-        .order('created_at', { ascending: false })
-        .range((page - 1) * limit, page * limit - 1);
-
-      if (statusFilter !== 'all') {
-        query = query.eq('status', statusFilter);
-      }
-
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString(),
+        status: statusFilter,
+      });
       if (searchQuery) {
-        query = query.or(`name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%,phone.ilike.%${searchQuery}%`);
+        params.set('search', searchQuery);
       }
 
-      const { data, error, count } = await query;
+      const res = await fetch(`/api/leads?${params}`);
+      const data = await res.json();
 
-      if (error) throw error;
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to load leads');
+      }
 
-      setLeads(data || []);
-      setTotal(count || 0);
+      setLeads(data.leads || []);
+      setTotal(data.total || 0);
     } catch (error: any) {
       console.error('Error loading leads:', error);
       toast.error(error.message);
@@ -149,29 +112,20 @@ export default function LeadsPage() {
 
   const handleAddLead = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!workspaceId) {
-      toast.error('No workspace found');
-      return;
-    }
-
     setSaving(true);
-    try {
-      const { data, error } = await supabase
-        .from('leads')
-        .insert({
-          workspace_id: workspaceId,
-          name: newLead.name,
-          email: newLead.email,
-          phone: newLead.phone,
-          service_interested: newLead.service_interested || null,
-          notes: newLead.notes || null,
-          source: newLead.source,
-          status: 'new',
-        })
-        .select()
-        .single();
 
-      if (error) throw error;
+    try {
+      const res = await fetch('/api/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newLead),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to add lead');
+      }
 
       toast.success('Lead added successfully!');
       setShowAddModal(false);
@@ -194,12 +148,17 @@ export default function LeadsPage() {
 
   const updateLeadStatus = async (leadId: string, status: LeadStatus) => {
     try {
-      const { error } = await supabase
-        .from('leads')
-        .update({ status })
-        .eq('id', leadId);
+      const res = await fetch('/api/leads', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: leadId, status }),
+      });
 
-      if (error) throw error;
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to update status');
+      }
 
       setLeads(prev => prev.map(l => l.id === leadId ? { ...l, status } : l));
       toast.success('Status updated');
@@ -212,12 +171,15 @@ export default function LeadsPage() {
     if (!confirm('Are you sure you want to delete this lead?')) return;
 
     try {
-      const { error } = await supabase
-        .from('leads')
-        .delete()
-        .eq('id', leadId);
+      const res = await fetch(`/api/leads?id=${leadId}`, {
+        method: 'DELETE',
+      });
 
-      if (error) throw error;
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to delete lead');
+      }
 
       toast.success('Lead deleted');
       setSelectedLead(null);

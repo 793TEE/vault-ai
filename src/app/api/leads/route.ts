@@ -1,199 +1,258 @@
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
+import { createClient } from '@supabase/supabase-js';
+import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
-import { sendSMS } from '@/lib/twilio';
-import { sendWelcomeEmail } from '@/lib/sendgrid';
-import { generateAIResponse } from '@/lib/openai';
-import type { LeadCapturePayload, Workspace } from '@/types/database';
 
-// GET /api/leads - Get leads for workspace
+// Service role client to bypass RLS
+const getServiceClient = () => {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    }
+  );
+};
+
+// Auth client to verify user
+const getAuthClient = () => {
+  const cookieStore = cookies();
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value;
+        },
+        set(name: string, value: string, options: CookieOptions) {
+          cookieStore.set({ name, value, ...options });
+        },
+        remove(name: string, options: CookieOptions) {
+          cookieStore.delete(name);
+        },
+      },
+    }
+  );
+};
+
+// Helper to get user's workspace
+async function getUserWorkspace(userId: string) {
+  const supabase = getServiceClient();
+  const { data: membership } = await supabase
+    .from('workspace_members')
+    .select('workspace_id')
+    .eq('user_id', userId)
+    .limit(1)
+    .single();
+  return membership?.workspace_id;
+}
+
+// GET - List leads for authenticated user
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const authClient = getAuthClient();
+    const { data: { user } } = await authClient.auth.getUser();
 
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
-    const searchParams = request.nextUrl.searchParams;
-    const workspaceId = searchParams.get('workspaceId');
-    const status = searchParams.get('status');
-    const limit = parseInt(searchParams.get('limit') || '50');
-    const offset = parseInt(searchParams.get('offset') || '0');
-
+    const workspaceId = await getUserWorkspace(user.id);
     if (!workspaceId) {
-      return NextResponse.json({ error: 'Workspace ID required' }, { status: 400 });
+      return NextResponse.json({ error: 'No workspace found' }, { status: 404 });
     }
+
+    const supabase = getServiceClient();
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '20');
+    const status = searchParams.get('status');
+    const search = searchParams.get('search');
 
     let query = supabase
       .from('leads')
       .select('*', { count: 'exact' })
       .eq('workspace_id', workspaceId)
       .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
+      .range((page - 1) * limit, page * limit - 1);
 
-    if (status) {
+    if (status && status !== 'all') {
       query = query.eq('status', status);
+    }
+
+    if (search) {
+      query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`);
     }
 
     const { data: leads, error, count } = await query;
 
-    if (error) throw error;
+    if (error) {
+      console.error('Error loading leads:', error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
 
-    return NextResponse.json({ leads, total: count });
+    return NextResponse.json({
+      leads,
+      total: count || 0,
+      workspace_id: workspaceId
+    });
   } catch (error: any) {
-    console.error('Get leads error:', error);
+    console.error('Leads GET error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
-// POST /api/leads - Create new lead (public endpoint for form submissions)
+// POST - Create lead (supports both authenticated and public requests)
 export async function POST(request: NextRequest) {
   try {
-    const body: LeadCapturePayload & { workspaceId: string } = await request.json();
-    const { workspaceId, name, email, phone, service_interested, notes, source } = body;
+    const body = await request.json();
+    const supabase = getServiceClient();
 
-    if (!workspaceId || !name || !email || !phone) {
-      return NextResponse.json(
-        { error: 'Missing required fields: workspaceId, name, email, phone' },
-        { status: 400 }
-      );
+    let workspaceId = body.workspaceId;
+
+    // If no workspaceId provided, try to get it from authenticated user
+    if (!workspaceId) {
+      const authClient = getAuthClient();
+      const { data: { user } } = await authClient.auth.getUser();
+
+      if (!user) {
+        return NextResponse.json({ error: 'Not authenticated and no workspaceId provided' }, { status: 401 });
+      }
+
+      workspaceId = await getUserWorkspace(user.id);
+      if (!workspaceId) {
+        return NextResponse.json({ error: 'No workspace found' }, { status: 404 });
+      }
     }
 
-    // Use service role client for public endpoint
-    const supabase = createServiceRoleClient();
+    // Validate required fields
+    if (!body.name || !body.email || !body.phone) {
+      return NextResponse.json({ error: 'Name, email, and phone are required' }, { status: 400 });
+    }
 
-    // Get workspace
-    const { data: workspace, error: wsError } = await supabase
+    // Get workspace to check limits
+    const { data: workspace } = await supabase
       .from('workspaces')
       .select('*')
       .eq('id', workspaceId)
       .single();
 
-    if (wsError || !workspace) {
+    if (!workspace) {
       return NextResponse.json({ error: 'Invalid workspace' }, { status: 404 });
     }
 
-    // Check message limits
-    if (workspace.messages_used >= workspace.messages_limit) {
-      return NextResponse.json({ error: 'Message limit reached' }, { status: 429 });
-    }
-
     // Create lead
-    const { data: lead, error: leadError } = await supabase
+    const { data: lead, error } = await supabase
       .from('leads')
       .insert({
         workspace_id: workspaceId,
-        name,
-        email,
-        phone,
-        service_interested,
-        notes,
-        source: source || 'website_form',
+        name: body.name,
+        email: body.email,
+        phone: body.phone,
+        service_interested: body.service_interested || null,
+        notes: body.notes || null,
+        source: body.source || 'manual',
         status: 'new',
       })
       .select()
       .single();
 
-    if (leadError) throw leadError;
-
-    // Send immediate AI response (Email only - FREE mode)
-    if (workspace.ai_enabled) {
-      // Send welcome email (FREE with SendGrid)
-      await sendWelcomeEmail(workspace, { name, email });
-
-      // Log email
-      await supabase.from('conversations').insert({
-        workspace_id: workspaceId,
-        lead_id: lead.id,
-        channel: 'email',
-        direction: 'outbound',
-        content: 'Welcome email sent',
-        ai_generated: true,
-        status: 'sent',
-      });
-
-      // Update lead status
-      await supabase
-        .from('leads')
-        .update({
-          status: 'contacted',
-          last_contacted_at: new Date().toISOString(),
-        })
-        .eq('id', lead.id);
-
-      // Increment messages used
-      await supabase.rpc('increment_messages_used', { p_workspace_id: workspaceId });
-
-      // Schedule follow-up
-      const { data: defaultSequence } = await supabase
-        .from('followup_sequences')
-        .select('*')
-        .eq('workspace_id', workspaceId)
-        .eq('is_active', true)
-        .limit(1)
-        .single();
-
-      if (defaultSequence) {
-        const firstStep = defaultSequence.steps[0];
-        const nextSendAt = new Date();
-        nextSendAt.setHours(nextSendAt.getHours() + (firstStep?.delay_hours || 24));
-
-        await supabase.from('followup_queue').insert({
-          workspace_id: workspaceId,
-          lead_id: lead.id,
-          sequence_id: defaultSequence.id,
-          current_step: 0,
-          next_send_at: nextSendAt.toISOString(),
-        });
-      }
+    if (error) {
+      console.error('Error creating lead:', error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // Log analytics event
-    await supabase.from('analytics_events').insert({
-      workspace_id: workspaceId,
-      event_type: 'lead_captured',
-      event_data: {
-        lead_id: lead.id,
-        source: source || 'website_form',
-        service: service_interested,
-      },
-    });
-
-    return NextResponse.json({
-      success: true,
-      message: 'Thank you! We will be in touch shortly.',
-      lead_id: lead.id,
-    });
+    return NextResponse.json({ success: true, lead });
   } catch (error: any) {
-    console.error('Create lead error:', error);
+    console.error('Leads POST error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
-async function generateInitialMessage(workspace: Workspace, lead: any): Promise<string> {
-  // Create a simple welcome message
-  const businessName = workspace.name;
-  const leadName = lead.name.split(' ')[0]; // First name only
-
-  // Use AI to generate personalized message
+// PATCH - Update lead
+export async function PATCH(request: NextRequest) {
   try {
-    const context = {
-      workspace,
-      lead,
-      memory: null,
-      recentMessages: [],
-    };
+    const authClient = getAuthClient();
+    const { data: { user } } = await authClient.auth.getUser();
 
-    const result = await generateAIResponse(
-      context,
-      `New lead just submitted a form. Their name is ${lead.name} and they're interested in: ${lead.service_interested || 'your services'}. Send a warm, brief welcome SMS.`,
-      'sms'
-    );
+    if (!user) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+    }
 
-    return result.response;
-  } catch (error) {
-    // Fallback message
-    return `Hi ${leadName}! Thanks for reaching out to ${businessName}. We received your inquiry and will be in touch shortly. Feel free to reply with any questions!`;
+    const workspaceId = await getUserWorkspace(user.id);
+    if (!workspaceId) {
+      return NextResponse.json({ error: 'No workspace found' }, { status: 404 });
+    }
+
+    const body = await request.json();
+    const { id, ...updateData } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: 'Lead ID required' }, { status: 400 });
+    }
+
+    const supabase = getServiceClient();
+    const { data: lead, error } = await supabase
+      .from('leads')
+      .update(updateData)
+      .eq('id', id)
+      .eq('workspace_id', workspaceId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating lead:', error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true, lead });
+  } catch (error: any) {
+    console.error('Leads PATCH error:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+// DELETE - Delete lead
+export async function DELETE(request: NextRequest) {
+  try {
+    const authClient = getAuthClient();
+    const { data: { user } } = await authClient.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+    }
+
+    const workspaceId = await getUserWorkspace(user.id);
+    if (!workspaceId) {
+      return NextResponse.json({ error: 'No workspace found' }, { status: 404 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ error: 'Lead ID required' }, { status: 400 });
+    }
+
+    const supabase = getServiceClient();
+    const { error } = await supabase
+      .from('leads')
+      .delete()
+      .eq('id', id)
+      .eq('workspace_id', workspaceId);
+
+    if (error) {
+      console.error('Error deleting lead:', error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error('Leads DELETE error:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
