@@ -275,7 +275,8 @@ export default function TemplatesPage() {
         setSelectedTemplate(null);
       } else {
         console.error('Template apply error:', data);
-        toast.error(data.error || 'Failed to apply template');
+        const errorMsg = data.details || data.error || 'Failed to apply template';
+        toast.error(errorMsg);
       }
     } catch (error: any) {
       console.error('Template error:', error);

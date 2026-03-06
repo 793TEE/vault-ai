@@ -140,7 +140,11 @@ export async function PATCH(request: NextRequest) {
 
     if (error) {
       console.error('Error updating workspace:', error);
-      return NextResponse.json({ error: 'Failed to update settings' }, { status: 500 });
+      return NextResponse.json({
+        error: 'Failed to update settings',
+        details: error.message,
+        code: error.code
+      }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, workspace: data });
