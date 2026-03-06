@@ -1,4 +1,4 @@
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import {
   MessageSquare,
@@ -11,6 +11,54 @@ import {
   Search,
 } from 'lucide-react';
 import Link from 'next/link';
+
+async function ensureWorkspaceExists(userId: string, userEmail: string) {
+  const supabase = createServiceRoleClient();
+
+  const { data: existingUser } = await supabase
+    .from('users')
+    .select('id')
+    .eq('id', userId)
+    .single();
+
+  if (!existingUser) {
+    await supabase.from('users').insert({ id: userId, email: userEmail });
+  }
+
+  const { data: membership } = await supabase
+    .from('workspace_members')
+    .select('workspace_id')
+    .eq('user_id', userId)
+    .limit(1)
+    .single();
+
+  if (membership) return membership.workspace_id;
+
+  const slug = `${userEmail.split('@')[0].replace(/[^a-z0-9]/gi, '-').toLowerCase()}-${userId.substring(0, 8)}`;
+
+  const { data: workspace } = await supabase
+    .from('workspaces')
+    .insert({
+      name: 'My Workspace',
+      slug,
+      owner_id: userId,
+      subscription_status: 'trialing',
+      subscription_plan: 'starter',
+      messages_limit: 500,
+    })
+    .select()
+    .single();
+
+  if (!workspace) return null;
+
+  await supabase.from('workspace_members').insert({
+    workspace_id: workspace.id,
+    user_id: userId,
+    role: 'owner',
+  });
+
+  return workspace.id;
+}
 
 async function getConversations(workspaceId: string) {
   const supabase = createServerSupabaseClient();
@@ -62,22 +110,17 @@ export default async function ConversationsPage() {
 
   if (!user) redirect('/login');
 
-  const { data: membership } = await supabase
-    .from('workspace_members')
-    .select('workspace_id')
-    .eq('user_id', user.id)
-    .limit(1)
-    .single();
+  const workspaceId = await ensureWorkspaceExists(user.id, user.email || '');
 
-  if (!membership) {
+  if (!workspaceId) {
     return (
       <div className="flex items-center justify-center h-96">
-        <p className="text-dark-400">No workspace found.</p>
+        <p className="text-dark-400">Unable to load workspace. Please refresh the page.</p>
       </div>
     );
   }
 
-  const conversations = await getConversations(membership.workspace_id);
+  const conversations = await getConversations(workspaceId);
 
   return (
     <div className="space-y-6 animate-in">

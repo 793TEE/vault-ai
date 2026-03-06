@@ -50,8 +50,13 @@ export default function Sidebar({ workspace, userEmail }: SidebarProps) {
   const isAdmin = userEmail && ADMIN_EMAILS.includes(userEmail);
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    window.location.href = '/login';
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.error('Sign out error:', e);
+    }
+    // Force full page reload to clear all state
+    window.location.replace('/login');
   };
 
   const closeMobileMenu = () => setMobileMenuOpen(false);
