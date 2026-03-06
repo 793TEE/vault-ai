@@ -290,6 +290,43 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Cross-Promotion: His Secret Vault */}
+      <section className="py-12 px-4 bg-gradient-to-r from-orange-900/30 to-red-900/30 border-y border-orange-500/20">
+        <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex-1">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center">
+                <svg viewBox="0 0 24 24" fill="none" width="24" height="24">
+                  <rect x="2" y="4" width="20" height="16" rx="2" fill="url(#vaultGrad)" stroke="none"/>
+                  <circle cx="12" cy="12" r="4" fill="none" stroke="#fff" strokeWidth="1.5"/>
+                  <circle cx="12" cy="12" r="1.5" fill="#fff"/>
+                  <defs>
+                    <linearGradient id="vaultGrad" x1="12" y1="4" x2="12" y2="20" gradientUnits="userSpaceOnUse">
+                      <stop offset="0%" stopColor="#ff4d4d"/>
+                      <stop offset="100%" stopColor="#ff8c00"/>
+                    </linearGradient>
+                  </defs>
+                </svg>
+              </div>
+              <span className="text-xl font-bold text-white">His Secret Vault AI</span>
+            </div>
+            <h3 className="text-2xl font-bold text-white mb-2">14 AI Experts in One Platform</h3>
+            <p className="text-dark-300">Credit repair, business formation, funding strategies, marketing campaigns, and more. Get instant AI-powered answers and done-for-you templates.</p>
+          </div>
+          <div className="text-center">
+            <a
+              href="https://hissecretvault.net"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block px-8 py-3 bg-gradient-to-r from-orange-500 to-red-600 text-white font-semibold rounded-lg hover:opacity-90 transition-opacity"
+            >
+              Explore Free Tools
+            </a>
+            <p className="text-dark-500 text-sm mt-2">Free AI tools available</p>
+          </div>
+        </div>
+      </section>
+
       {/* Footer */}
       <footer className="py-12 px-4 border-t border-dark-800">
         <div className="max-w-7xl mx-auto">
