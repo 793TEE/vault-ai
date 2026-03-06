@@ -130,24 +130,24 @@ export default async function AdminPage() {
   return (
     <div className="min-h-screen bg-dark-950">
       {/* Admin Header */}
-      <header className="bg-dark-900 border-b border-dark-800 px-6 py-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-red-500/20 rounded-lg flex items-center justify-center">
+      <header className="bg-dark-900 border-b border-dark-800 px-4 sm:px-6 py-4">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 bg-red-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
               <Shield className="w-5 h-5 text-red-400" />
             </div>
-            <div>
-              <h1 className="text-xl font-bold text-white">Admin Dashboard</h1>
-              <p className="text-sm text-dark-400">Vault AI Platform Management</p>
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-xl font-bold text-white truncate">Admin Dashboard</h1>
+              <p className="text-xs sm:text-sm text-dark-400 hidden sm:block">Vault AI Platform Management</p>
             </div>
           </div>
-          <Link href="/dashboard" className="text-sm text-dark-400 hover:text-white transition-colors">
-            Back to Dashboard
+          <Link href="/dashboard" className="text-sm text-dark-400 hover:text-white transition-colors whitespace-nowrap">
+            Back
           </Link>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {/* Stats Grid */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
           {statCards.map((stat) => (

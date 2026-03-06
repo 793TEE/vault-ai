@@ -7,10 +7,22 @@
 @layer base {
   html {
     @apply scroll-smooth;
+    -webkit-tap-highlight-color: transparent;
   }
 
   body {
     @apply bg-dark-950 text-dark-100 antialiased;
+  }
+
+  /* Prevent iOS zoom on input focus */
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+
+  @media (min-width: 1024px) {
+    input, select, textarea {
+      font-size: 14px !important;
+    }
   }
 
   /* Custom scrollbar */

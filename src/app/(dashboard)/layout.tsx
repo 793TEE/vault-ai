@@ -35,8 +35,8 @@ export default async function DashboardLayout({
   return (
     <div className="min-h-screen bg-dark-950">
       <Sidebar workspace={workspace || undefined} userEmail={user.email} />
-      <main className="pl-64">
-        <div className="p-8">
+      <main className="lg:pl-64 pt-14 lg:pt-0">
+        <div className="p-4 lg:p-8">
           {children}
         </div>
       </main>
