@@ -137,8 +137,32 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Demo Section */}
+      <section id="demo" className="py-20 px-4 bg-dark-900/50">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-10">
+            <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+              See Vault AI in Action
+            </h2>
+            <p className="text-dark-400">
+              Watch how our AI converts leads while you sleep
+            </p>
+          </div>
+          <div className="aspect-video bg-dark-800 rounded-xl border border-dark-700 flex items-center justify-center">
+            <div className="text-center">
+              <div className="w-20 h-20 bg-primary-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-10 h-10 text-primary-400" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z"/>
+                </svg>
+              </div>
+              <p className="text-dark-400">Demo video coming soon</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* How It Works */}
-      <section className="py-20 px-4 bg-dark-900/50">
+      <section className="py-20 px-4">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
