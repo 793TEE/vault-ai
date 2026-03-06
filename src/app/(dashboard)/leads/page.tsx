@@ -14,9 +14,26 @@ import {
   Loader2,
   ChevronLeft,
   ChevronRight,
+  X,
+  User,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import type { Lead, LeadStatus } from '@/types/database';
+
+type LeadStatus = 'new' | 'contacted' | 'qualified' | 'appointment_scheduled' | 'booked' | 'closed_won' | 'closed_lost' | 'unresponsive';
+
+interface Lead {
+  id: string;
+  workspace_id: string;
+  name: string;
+  email: string;
+  phone: string;
+  service_interested: string | null;
+  notes: string | null;
+  source: string | null;
+  status: LeadStatus;
+  followup_count: number;
+  created_at: string;
+}
 
 const statusColors: Record<LeadStatus, string> = {
   new: 'badge-info',
@@ -49,6 +66,16 @@ export default function LeadsPage() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [newLead, setNewLead] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    service_interested: '',
+    notes: '',
+    source: 'manual',
+  });
 
   const supabase = createClient();
   const limit = 20;
@@ -67,12 +94,19 @@ export default function LeadsPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { data: membership } = await supabase
+    const { data: membership, error } = await supabase
       .from('workspace_members')
       .select('workspace_id')
       .eq('user_id', user.id)
       .limit(1)
       .single();
+
+    if (error) {
+      console.error('Error loading workspace:', error);
+      toast.error('Unable to load workspace. Please check your database setup.');
+      setLoading(false);
+      return;
+    }
 
     if (membership) {
       setWorkspaceId(membership.workspace_id);
@@ -106,9 +140,55 @@ export default function LeadsPage() {
       setLeads(data || []);
       setTotal(count || 0);
     } catch (error: any) {
+      console.error('Error loading leads:', error);
       toast.error(error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAddLead = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!workspaceId) {
+      toast.error('No workspace found');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const { data, error } = await supabase
+        .from('leads')
+        .insert({
+          workspace_id: workspaceId,
+          name: newLead.name,
+          email: newLead.email,
+          phone: newLead.phone,
+          service_interested: newLead.service_interested || null,
+          notes: newLead.notes || null,
+          source: newLead.source,
+          status: 'new',
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      toast.success('Lead added successfully!');
+      setShowAddModal(false);
+      setNewLead({
+        name: '',
+        email: '',
+        phone: '',
+        service_interested: '',
+        notes: '',
+        source: 'manual',
+      });
+      loadLeads();
+    } catch (error: any) {
+      console.error('Error adding lead:', error);
+      toast.error(error.message || 'Failed to add lead');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -128,19 +208,38 @@ export default function LeadsPage() {
     }
   };
 
+  const deleteLead = async (leadId: string) => {
+    if (!confirm('Are you sure you want to delete this lead?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('leads')
+        .delete()
+        .eq('id', leadId);
+
+      if (error) throw error;
+
+      toast.success('Lead deleted');
+      setSelectedLead(null);
+      loadLeads();
+    } catch (error: any) {
+      toast.error(error.message);
+    }
+  };
+
   const totalPages = Math.ceil(total / limit);
 
   return (
     <div className="space-y-6 animate-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white">Leads</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white">Leads</h1>
           <p className="text-dark-400 mt-1">
             {total} total leads
           </p>
         </div>
-        <button className="btn btn-primary">
+        <button onClick={() => setShowAddModal(true)} className="btn btn-primary">
           <Plus className="w-4 h-4 mr-2" />
           Add Lead
         </button>
@@ -166,7 +265,7 @@ export default function LeadsPage() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as LeadStatus | 'all')}
-              className="input w-40"
+              className="input w-full sm:w-40"
             >
               <option value="all">All Status</option>
               {Object.entries(statusLabels).map(([value, label]) => (
@@ -189,15 +288,47 @@ export default function LeadsPage() {
               <Mail className="w-8 h-8 text-dark-600" />
             </div>
             <h3 className="text-lg font-medium text-white mb-2">No leads found</h3>
-            <p className="text-dark-400 max-w-sm mx-auto">
+            <p className="text-dark-400 max-w-sm mx-auto mb-4">
               {searchQuery || statusFilter !== 'all'
                 ? 'Try adjusting your filters'
-                : 'Leads will appear here when captured from your forms'}
+                : 'Add your first lead or embed your form on your website'}
             </p>
+            <button onClick={() => setShowAddModal(true)} className="btn btn-primary">
+              <Plus className="w-4 h-4 mr-2" />
+              Add Your First Lead
+            </button>
           </div>
         ) : (
           <>
-            <div className="table-container">
+            {/* Mobile Card View */}
+            <div className="sm:hidden divide-y divide-dark-800">
+              {leads.map((lead) => (
+                <div
+                  key={lead.id}
+                  className="p-4 hover:bg-dark-800/50 cursor-pointer"
+                  onClick={() => setSelectedLead(lead)}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-700 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0">
+                      {lead.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="font-medium text-white truncate">{lead.name}</p>
+                        <span className={`badge ${statusColors[lead.status]} text-xs`}>
+                          {statusLabels[lead.status]}
+                        </span>
+                      </div>
+                      <p className="text-sm text-dark-400 truncate">{lead.email}</p>
+                      <p className="text-sm text-dark-500">{lead.phone}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop Table View */}
+            <div className="hidden sm:block table-container">
               <table className="table">
                 <thead>
                   <tr>
@@ -267,20 +398,12 @@ export default function LeadsPage() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              // Send message
+                              window.location.href = `mailto:${lead.email}`;
                             }}
                             className="p-2 hover:bg-dark-700 rounded-lg"
+                            title="Send Email"
                           >
                             <MessageSquare className="w-4 h-4 text-dark-400" />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              // More actions
-                            }}
-                            className="p-2 hover:bg-dark-700 rounded-lg"
-                          >
-                            <MoreVertical className="w-4 h-4 text-dark-400" />
                           </button>
                         </div>
                       </td>
@@ -292,7 +415,7 @@ export default function LeadsPage() {
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-dark-800">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-4 py-3 border-t border-dark-800">
                 <p className="text-sm text-dark-400">
                   Showing {(page - 1) * limit + 1} to {Math.min(page * limit, total)} of {total}
                 </p>
@@ -321,21 +444,142 @@ export default function LeadsPage() {
         )}
       </div>
 
-      {/* Lead Detail Modal - Simplified */}
+      {/* Add Lead Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="bg-dark-900 border border-dark-800 rounded-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-4 sm:p-6 border-b border-dark-800 flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-white">Add New Lead</h2>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="p-2 hover:bg-dark-800 rounded-lg text-dark-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleAddLead} className="p-4 sm:p-6 space-y-4">
+              <div>
+                <label className="label">Name *</label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-500" />
+                  <input
+                    type="text"
+                    value={newLead.name}
+                    onChange={(e) => setNewLead({ ...newLead, name: e.target.value })}
+                    className="input pl-10"
+                    placeholder="John Smith"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="label">Email *</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-500" />
+                  <input
+                    type="email"
+                    value={newLead.email}
+                    onChange={(e) => setNewLead({ ...newLead, email: e.target.value })}
+                    className="input pl-10"
+                    placeholder="john@example.com"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="label">Phone *</label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-500" />
+                  <input
+                    type="tel"
+                    value={newLead.phone}
+                    onChange={(e) => setNewLead({ ...newLead, phone: e.target.value })}
+                    className="input pl-10"
+                    placeholder="(555) 123-4567"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="label">Service Interested In</label>
+                <input
+                  type="text"
+                  value={newLead.service_interested}
+                  onChange={(e) => setNewLead({ ...newLead, service_interested: e.target.value })}
+                  className="input"
+                  placeholder="e.g., Web Design, Consulting"
+                />
+              </div>
+
+              <div>
+                <label className="label">Source</label>
+                <select
+                  value={newLead.source}
+                  onChange={(e) => setNewLead({ ...newLead, source: e.target.value })}
+                  className="input"
+                >
+                  <option value="manual">Manual Entry</option>
+                  <option value="website">Website Form</option>
+                  <option value="referral">Referral</option>
+                  <option value="social">Social Media</option>
+                  <option value="ads">Paid Ads</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="label">Notes</label>
+                <textarea
+                  value={newLead.notes}
+                  onChange={(e) => setNewLead({ ...newLead, notes: e.target.value })}
+                  className="input min-h-[100px]"
+                  placeholder="Any additional information..."
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="btn btn-secondary flex-1"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="btn btn-primary flex-1"
+                >
+                  {saving ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    'Add Lead'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Lead Detail Modal */}
       {selectedLead && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <div className="bg-dark-900 border border-dark-800 rounded-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
-            <div className="p-6 border-b border-dark-800 flex items-center justify-between">
+          <div className="bg-dark-900 border border-dark-800 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-4 sm:p-6 border-b border-dark-800 flex items-center justify-between">
               <h2 className="text-xl font-semibold text-white">{selectedLead.name}</h2>
               <button
                 onClick={() => setSelectedLead(null)}
-                className="text-dark-400 hover:text-white"
+                className="p-2 hover:bg-dark-800 rounded-lg text-dark-400 hover:text-white"
               >
-                &times;
+                <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+            <div className="p-4 sm:p-6 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="label">Email</label>
                   <p className="text-white">{selectedLead.email}</p>
@@ -354,6 +598,14 @@ export default function LeadsPage() {
                     {statusLabels[selectedLead.status]}
                   </span>
                 </div>
+                <div>
+                  <label className="label">Source</label>
+                  <p className="text-white">{selectedLead.source || 'Direct'}</p>
+                </div>
+                <div>
+                  <label className="label">Created</label>
+                  <p className="text-white">{new Date(selectedLead.created_at).toLocaleString()}</p>
+                </div>
               </div>
               {selectedLead.notes && (
                 <div>
@@ -361,6 +613,28 @@ export default function LeadsPage() {
                   <p className="text-dark-300">{selectedLead.notes}</p>
                 </div>
               )}
+              <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-dark-800">
+                <a
+                  href={`mailto:${selectedLead.email}`}
+                  className="btn btn-secondary flex-1"
+                >
+                  <Mail className="w-4 h-4 mr-2" />
+                  Send Email
+                </a>
+                <a
+                  href={`tel:${selectedLead.phone}`}
+                  className="btn btn-secondary flex-1"
+                >
+                  <Phone className="w-4 h-4 mr-2" />
+                  Call
+                </a>
+                <button
+                  onClick={() => deleteLead(selectedLead.id)}
+                  className="btn btn-danger flex-1"
+                >
+                  Delete Lead
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -1,4 +1,4 @@
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import {
   Users,
@@ -11,6 +11,77 @@ import {
   Zap,
 } from 'lucide-react';
 import Link from 'next/link';
+
+async function ensureWorkspaceExists(userId: string, userEmail: string) {
+  const supabase = createServiceRoleClient();
+
+  // Check if user exists in users table
+  const { data: existingUser } = await supabase
+    .from('users')
+    .select('id')
+    .eq('id', userId)
+    .single();
+
+  // If user doesn't exist, create them
+  if (!existingUser) {
+    await supabase.from('users').insert({
+      id: userId,
+      email: userEmail,
+    });
+  }
+
+  // Check if workspace exists
+  const { data: membership } = await supabase
+    .from('workspace_members')
+    .select('workspace_id')
+    .eq('user_id', userId)
+    .limit(1)
+    .single();
+
+  if (membership) {
+    return membership.workspace_id;
+  }
+
+  // Create new workspace
+  const slug = `${userEmail.split('@')[0].replace(/[^a-z0-9]/gi, '-').toLowerCase()}-${userId.substring(0, 8)}`;
+
+  const { data: workspace, error: wsError } = await supabase
+    .from('workspaces')
+    .insert({
+      name: 'My Workspace',
+      slug,
+      owner_id: userId,
+      subscription_status: 'trialing',
+      subscription_plan: 'starter',
+      messages_limit: 500,
+    })
+    .select()
+    .single();
+
+  if (wsError || !workspace) {
+    console.error('Failed to create workspace:', wsError);
+    return null;
+  }
+
+  // Add user as owner
+  await supabase.from('workspace_members').insert({
+    workspace_id: workspace.id,
+    user_id: userId,
+    role: 'owner',
+  });
+
+  // Create default follow-up sequence
+  await supabase.from('followup_sequences').insert({
+    workspace_id: workspace.id,
+    name: 'Default Follow-up',
+    steps: [
+      { delay_hours: 24, channel: 'email', subject: 'Following up', template: 'Hi {name}! Just checking in about your inquiry.' },
+      { delay_hours: 48, channel: 'email', subject: 'Quick follow-up', template: 'Hi {name}, Wanted to make sure you saw my last message.' },
+    ],
+  });
+
+  return workspace.id;
+}
 
 async function getStats(workspaceId: string) {
   const supabase = createServerSupabaseClient();
@@ -91,23 +162,27 @@ export default async function DashboardPage() {
 
   if (!user) redirect('/login');
 
-  // Get workspace
-  const { data: membership } = await supabase
-    .from('workspace_members')
-    .select('workspace_id')
-    .eq('user_id', user.id)
-    .limit(1)
-    .single();
+  // Ensure workspace exists (creates one if missing)
+  const workspaceId = await ensureWorkspaceExists(user.id, user.email || '');
 
-  if (!membership) {
+  if (!workspaceId) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <p className="text-dark-400">No workspace found. Please contact support.</p>
+      <div className="flex flex-col items-center justify-center h-96 text-center px-4">
+        <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mb-4">
+          <Zap className="w-8 h-8 text-red-400" />
+        </div>
+        <h2 className="text-xl font-semibold text-white mb-2">Setup Required</h2>
+        <p className="text-dark-400 mb-4 max-w-md">
+          We couldn't set up your workspace. This usually means the database schema needs to be configured.
+        </p>
+        <p className="text-dark-500 text-sm">
+          Please make sure you've run the database schema in Supabase SQL Editor.
+        </p>
       </div>
     );
   }
 
-  const stats = await getStats(membership.workspace_id);
+  const stats = await getStats(workspaceId);
 
   const statCards = [
     {
