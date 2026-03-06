@@ -222,7 +222,7 @@ export default function ChatWidget({ params }: { params: { workspaceId: string }
           {/* Powered by */}
           <div className="px-4 py-2 bg-gray-100 text-center">
             <a
-              href="https://vault-ai.vercel.app"
+              href="https://my-vaultais.vercel.app"
               target="_blank"
               rel="noopener noreferrer"
               className="text-xs text-gray-500 hover:text-indigo-600 transition-colors"
