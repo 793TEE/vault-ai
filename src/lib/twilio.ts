@@ -89,7 +89,7 @@ export async function validatePhoneNumber(phone: string): Promise<{
     return {
       valid: lookup.valid,
       formatted: lookup.phoneNumber,
-      carrier: lookup.lineTypeIntelligence?.carrier_name,
+      carrier: lookup.lineTypeIntelligence?.carrierName,
       type: lookup.lineTypeIntelligence?.type,
     };
   } catch (error) {
