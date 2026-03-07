@@ -19,7 +19,7 @@ const ADMIN_EMAILS = [
 ];
 
 async function getAdminStats() {
-  const supabase = createServerSupabaseClient();
+  const supabase = createServiceRoleClient();
 
   // Total users
   const { count: totalUsers } = await supabase

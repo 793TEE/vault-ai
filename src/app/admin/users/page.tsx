@@ -1,4 +1,4 @@
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Users, Mail, Calendar, Shield } from 'lucide-react';
@@ -13,7 +13,8 @@ export default async function AdminUsersPage() {
     redirect('/dashboard');
   }
 
-  const { data: users } = await supabase
+  const serviceClient = createServiceRoleClient();
+  const { data: users } = await serviceClient
     .from('users')
     .select('*')
     .order('created_at', { ascending: false });
