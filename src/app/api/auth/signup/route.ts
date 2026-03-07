@@ -103,48 +103,84 @@ export async function POST(request: NextRequest) {
     const trialEndDate = new Date();
     trialEndDate.setDate(trialEndDate.getDate() + tier.trialDays);
 
-    // Create workspace for user
-    const slug = `${email.split('@')[0].replace(/[^a-z0-9]/gi, '-').toLowerCase()}-${userId.substring(0, 8)}`;
-
-    const { data: workspace, error: wsError } = await supabase
-      .from('workspaces')
-      .insert({
-        name: fullName ? `${fullName}'s Workspace` : 'My Workspace',
-        slug,
-        owner_id: userId,
-        subscription_status: 'trialing',
-        subscription_plan: tier.plan,
-        messages_limit: tier.messagesLimit,
-        messages_used: 0,
-        ai_enabled: true,
-        current_period_end: trialEndDate.toISOString(),
-      })
-      .select()
+    // Check if workspace was already created by database trigger
+    const { data: existingWorkspace } = await supabase
+      .from('workspace_members')
+      .select('workspace_id')
+      .eq('user_id', userId)
       .single();
 
-    if (wsError) {
-      console.error('Workspace creation error:', wsError);
-      // Continue anyway - workspace can be created on first login
+    let workspaceId = existingWorkspace?.workspace_id;
+
+    if (workspaceId) {
+      // Update existing workspace with correct tier limits
+      await supabase
+        .from('workspaces')
+        .update({
+          name: fullName ? `${fullName}'s Workspace` : 'My Workspace',
+          subscription_status: 'trialing',
+          subscription_plan: tier.plan,
+          messages_limit: tier.messagesLimit,
+          messages_used: 0,
+          ai_enabled: true,
+          current_period_end: trialEndDate.toISOString(),
+        })
+        .eq('id', workspaceId);
+    } else {
+      // Create workspace for user (if trigger didn't create one)
+      const slug = `${email.split('@')[0].replace(/[^a-z0-9]/gi, '-').toLowerCase()}-${userId.substring(0, 8)}`;
+
+      const { data: workspace, error: wsError } = await supabase
+        .from('workspaces')
+        .insert({
+          name: fullName ? `${fullName}'s Workspace` : 'My Workspace',
+          slug,
+          owner_id: userId,
+          subscription_status: 'trialing',
+          subscription_plan: tier.plan,
+          messages_limit: tier.messagesLimit,
+          messages_used: 0,
+          ai_enabled: true,
+          current_period_end: trialEndDate.toISOString(),
+        })
+        .select()
+        .single();
+
+      if (wsError) {
+        console.error('Workspace creation error:', wsError);
+      } else if (workspace) {
+        workspaceId = workspace.id;
+
+        // Create workspace membership
+        await supabase.from('workspace_members').insert({
+          workspace_id: workspace.id,
+          user_id: userId,
+          role: 'owner',
+        });
+      }
     }
 
-    // Create workspace membership
-    if (workspace) {
-      await supabase.from('workspace_members').insert({
-        workspace_id: workspace.id,
-        user_id: userId,
-        role: 'owner',
-      });
+    // Create default follow-up sequence if workspace exists
+    if (workspaceId) {
+      // Check if sequence already exists
+      const { data: existingSequence } = await supabase
+        .from('followup_sequences')
+        .select('id')
+        .eq('workspace_id', workspaceId)
+        .limit(1)
+        .single();
 
-      // Create default follow-up sequence
-      await supabase.from('followup_sequences').insert({
-        workspace_id: workspace.id,
-        name: 'Default Follow-up',
-        is_active: true,
-        steps: [
-          { delay_hours: 24, channel: 'email', subject: 'Following up', template: 'Hi {name}! Just checking in about your inquiry.' },
-          { delay_hours: 48, channel: 'email', subject: 'Quick follow-up', template: 'Hi {name}, Wanted to make sure you saw my last message.' },
-        ],
-      });
+      if (!existingSequence) {
+        await supabase.from('followup_sequences').insert({
+          workspace_id: workspaceId,
+          name: 'Default Follow-up',
+          is_active: true,
+          steps: [
+            { delay_hours: 24, channel: 'email', subject: 'Following up', template: 'Hi {name}! Just checking in about your inquiry.' },
+            { delay_hours: 48, channel: 'email', subject: 'Quick follow-up', template: 'Hi {name}, Wanted to make sure you saw my last message.' },
+          ],
+        });
+      }
     }
 
     return NextResponse.json({
