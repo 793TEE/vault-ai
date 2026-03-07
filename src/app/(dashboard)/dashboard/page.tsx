@@ -84,7 +84,7 @@ async function ensureWorkspaceExists(userId: string, userEmail: string) {
 }
 
 async function getStats(workspaceId: string) {
-  const supabase = createServerSupabaseClient();
+  const supabase = createServiceRoleClient();
   const now = new Date();
   const startOfDay = new Date(now.setHours(0, 0, 0, 0)).toISOString();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
