@@ -21,12 +21,25 @@ export default function EmbedSettingsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: membership } = await supabase
+      let { data: membership } = await supabase
         .from('workspace_members')
         .select('workspace_id')
         .eq('user_id', user.id)
         .limit(1)
         .single();
+
+      // If no workspace exists, create one
+      if (!membership) {
+        const response = await fetch('/api/init-workspace', {
+          method: 'POST',
+          credentials: 'include',
+        });
+        const result = await response.json();
+        if (result.workspaceId) {
+          setWorkspaceId(result.workspaceId);
+          return;
+        }
+      }
 
       if (membership) {
         setWorkspaceId(membership.workspace_id);
