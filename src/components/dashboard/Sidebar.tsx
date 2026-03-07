@@ -18,6 +18,7 @@ import {
   Menu,
   X,
   User,
+  Code,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -28,6 +29,7 @@ const navItems = [
   { href: '/conversations', icon: MessageSquare, label: 'Conversations' },
   { href: '/appointments', icon: Calendar, label: 'Appointments' },
   { href: '/analytics', icon: BarChart3, label: 'Analytics' },
+  { href: '/settings/embed', icon: Code, label: 'Embed Widget' },
   { href: '/settings/templates', icon: Layers, label: 'AI Templates' },
   { href: '/settings/ai', icon: Settings, label: 'Settings' },
   { href: '/settings/profile', icon: User, label: 'Profile' },
