@@ -20,27 +20,38 @@ export default function SignupPage() {
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: fullName,
-          },
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+      // Use our API endpoint to create user (bypasses RLS issues)
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          email,
+          password,
+          fullName,
+        }),
       });
 
-      if (error) throw error;
+      const result = await response.json();
 
-      // If session exists, user was auto-logged in (email confirmation disabled)
-      if (data.session) {
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to create account');
+      }
+
+      // Account created successfully, now sign in
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (signInError) {
+        // Account created but couldn't auto-sign in
+        toast.success('Account created! Please sign in.');
+        router.push('/login');
+      } else {
         toast.success('Account created! Welcome to Vault AI!');
         window.location.href = '/dashboard';
-      } else {
-        // Email confirmation is required
-        toast.success('Check your email to confirm your account!');
-        router.push('/login?message=Check your email to confirm your account');
       }
     } catch (error: any) {
       toast.error(error.message || 'Failed to sign up');

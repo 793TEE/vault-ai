@@ -146,24 +146,35 @@ export async function POST(request: NextRequest) {
     }
 
     // Create lead
+    const leadData = {
+      workspace_id: workspaceId,
+      name: body.name,
+      email: body.email,
+      phone: body.phone,
+      service_interested: body.service_interested || null,
+      notes: body.notes || null,
+      source: body.source || 'manual',
+      status: 'new',
+      followup_count: 0,
+    };
+
+    console.log('Creating lead with data:', leadData);
+
     const { data: lead, error } = await supabase
       .from('leads')
-      .insert({
-        workspace_id: workspaceId,
-        name: body.name,
-        email: body.email,
-        phone: body.phone,
-        service_interested: body.service_interested || null,
-        notes: body.notes || null,
-        source: body.source || 'manual',
-        status: 'new',
-      })
+      .insert(leadData)
       .select()
       .single();
 
     if (error) {
       console.error('Error creating lead:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error('Error details:', JSON.stringify(error, null, 2));
+      return NextResponse.json({
+        error: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, lead });
