@@ -1,52 +1,5 @@
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
-import { createClient } from '@supabase/supabase-js';
-import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
-
-const ADMIN_EMAILS = ['infohissecretvault23@gmail.com'];
-
-// Service role client to bypass RLS
-const getServiceClient = () => {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    }
-  );
-};
-
-// Auth client to verify user
-const getAuthClient = () => {
-  const cookieStore = cookies();
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value;
-        },
-        set(name: string, value: string, options: CookieOptions) {
-          cookieStore.set({ name, value, ...options });
-        },
-        remove(name: string, options: CookieOptions) {
-          cookieStore.delete(name);
-        },
-      },
-    }
-  );
-};
-
-// Check if user is admin
-async function isAdmin() {
-  const authClient = getAuthClient();
-  const { data: { user } } = await authClient.auth.getUser();
-  return user && ADMIN_EMAILS.includes(user.email || '');
-}
+import { isAdmin, getServiceClient } from '@/lib/admin/auth';
 
 // GET - Get admin data
 export async function GET(request: NextRequest) {
@@ -81,6 +34,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (action === 'stats') {
+      // Basic counts
       const { count: totalUsers } = await supabase
         .from('users')
         .select('*', { count: 'exact', head: true });
@@ -93,15 +47,56 @@ export async function GET(request: NextRequest) {
         .from('leads')
         .select('*', { count: 'exact', head: true });
 
-      const { count: totalMessages } = await supabase
+      const { count: totalConversations } = await supabase
         .from('conversations')
         .select('*', { count: 'exact', head: true });
+
+      const { count: totalAppointments } = await supabase
+        .from('appointments')
+        .select('*', { count: 'exact', head: true });
+
+      // Revenue calculations
+      const { data: activeWorkspaces } = await supabase
+        .from('workspaces')
+        .select('subscription_plan, subscription_status')
+        .eq('subscription_status', 'active');
+
+      const planPricing: Record<string, number> = {
+        starter: 97,
+        growth: 197,
+        scale: 497,
+      };
+
+      let mrr = 0;
+      activeWorkspaces?.forEach((ws) => {
+        if (ws.subscription_plan && planPricing[ws.subscription_plan]) {
+          mrr += planPricing[ws.subscription_plan];
+        }
+      });
+
+      // Message usage
+      const { data: allWorkspaces } = await supabase
+        .from('workspaces')
+        .select('messages_used, messages_limit');
+
+      let totalMessagesUsed = 0;
+      let totalMessagesLimit = 0;
+
+      allWorkspaces?.forEach((ws) => {
+        totalMessagesUsed += ws.messages_used || 0;
+        totalMessagesLimit += ws.messages_limit || 0;
+      });
 
       return NextResponse.json({
         totalUsers: totalUsers || 0,
         totalWorkspaces: totalWorkspaces || 0,
         totalLeads: totalLeads || 0,
-        totalMessages: totalMessages || 0,
+        totalConversations: totalConversations || 0,
+        totalAppointments: totalAppointments || 0,
+        mrr,
+        arr: mrr * 12,
+        messagesUsed: totalMessagesUsed,
+        messagesLimit: totalMessagesLimit,
       });
     }
 

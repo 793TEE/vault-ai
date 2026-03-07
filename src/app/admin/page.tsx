@@ -250,7 +250,7 @@ export default async function AdminPage() {
         {/* Admin Actions */}
         <div className="mt-8 bg-dark-900 rounded-xl border border-dark-800 p-6">
           <h2 className="text-lg font-semibold text-white mb-4">Quick Actions</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
             <Link
               href="/admin/users"
               className="p-4 bg-dark-800/50 rounded-lg hover:bg-dark-800 transition-colors text-center"
@@ -259,25 +259,39 @@ export default async function AdminPage() {
               <p className="text-sm font-medium text-white">Manage Users</p>
             </Link>
             <Link
-              href="/admin/newsletter"
+              href="/admin/workspaces"
               className="p-4 bg-dark-800/50 rounded-lg hover:bg-dark-800 transition-colors text-center"
             >
-              <Mail className="w-6 h-6 text-emerald-400 mx-auto mb-2" />
-              <p className="text-sm font-medium text-white">Send Newsletter</p>
+              <Building2 className="w-6 h-6 text-emerald-400 mx-auto mb-2" />
+              <p className="text-sm font-medium text-white">Workspaces</p>
+            </Link>
+            <Link
+              href="/admin/leads"
+              className="p-4 bg-dark-800/50 rounded-lg hover:bg-dark-800 transition-colors text-center"
+            >
+              <TrendingUp className="w-6 h-6 text-blue-400 mx-auto mb-2" />
+              <p className="text-sm font-medium text-white">All Leads</p>
+            </Link>
+            <Link
+              href="/admin/conversations"
+              className="p-4 bg-dark-800/50 rounded-lg hover:bg-dark-800 transition-colors text-center"
+            >
+              <MessageSquare className="w-6 h-6 text-purple-400 mx-auto mb-2" />
+              <p className="text-sm font-medium text-white">Conversations</p>
+            </Link>
+            <Link
+              href="/admin/referral-codes"
+              className="p-4 bg-dark-800/50 rounded-lg hover:bg-dark-800 transition-colors text-center"
+            >
+              <DollarSign className="w-6 h-6 text-amber-400 mx-auto mb-2" />
+              <p className="text-sm font-medium text-white">Referral Codes</p>
             </Link>
             <Link
               href="/admin/analytics"
               className="p-4 bg-dark-800/50 rounded-lg hover:bg-dark-800 transition-colors text-center"
             >
-              <TrendingUp className="w-6 h-6 text-blue-400 mx-auto mb-2" />
-              <p className="text-sm font-medium text-white">View Analytics</p>
-            </Link>
-            <Link
-              href="/admin/settings"
-              className="p-4 bg-dark-800/50 rounded-lg hover:bg-dark-800 transition-colors text-center"
-            >
-              <Shield className="w-6 h-6 text-amber-400 mx-auto mb-2" />
-              <p className="text-sm font-medium text-white">Platform Settings</p>
+              <TrendingUp className="w-6 h-6 text-pink-400 mx-auto mb-2" />
+              <p className="text-sm font-medium text-white">Analytics</p>
             </Link>
           </div>
         </div>

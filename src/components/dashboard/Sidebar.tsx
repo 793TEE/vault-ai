@@ -29,8 +29,8 @@ const navItems = [
   { href: '/appointments', icon: Calendar, label: 'Appointments' },
   { href: '/analytics', icon: BarChart3, label: 'Analytics' },
   { href: '/settings/templates', icon: Layers, label: 'AI Templates' },
+  { href: '/settings/ai', icon: Settings, label: 'Settings' },
   { href: '/settings/profile', icon: User, label: 'Profile' },
-  { href: '/settings', icon: Settings, label: 'Settings' },
 ];
 
 // Admin emails that can access admin panel

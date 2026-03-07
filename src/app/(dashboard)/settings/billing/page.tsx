@@ -83,8 +83,62 @@ export default function BillingPage() {
     setLoading(false);
   };
 
+  const [upgrading, setUpgrading] = useState<string | null>(null);
+
   const handleUpgrade = async (plan: string) => {
-    toast.success(`To upgrade to ${plan}, please contact support@hissecretvault.net`);
+    if (!workspace?.id) {
+      toast.error('Workspace not found');
+      return;
+    }
+
+    setUpgrading(plan);
+
+    try {
+      const res = await fetch('/api/billing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workspaceId: workspace.id,
+          plan: plan,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to create checkout session');
+      }
+
+      // Redirect to Stripe Checkout
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to start checkout');
+      setUpgrading(null);
+    }
+  };
+
+  const handleManageBilling = async () => {
+    if (!workspace?.id) {
+      toast.error('Workspace not found');
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/billing?workspaceId=${workspace.id}`);
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to open billing portal');
+      }
+
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to open billing portal');
+    }
   };
 
   if (loading) {
@@ -182,12 +236,15 @@ export default function BillingPage() {
               </button>
             ) : (
               <button
-                onClick={() => handleUpgrade(plan.name)}
+                onClick={() => handleUpgrade(plan.value)}
+                disabled={upgrading !== null}
                 className={`btn w-full ${plan.popular ? 'btn-primary' : 'btn-secondary'}`}
               >
-                {plans.findIndex(p => p.value === currentPlan) < plans.findIndex(p => p.value === plan.value)
+                {upgrading === plan.value ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : plans.findIndex(p => p.value === currentPlan) < plans.findIndex(p => p.value === plan.value)
                   ? 'Upgrade'
-                  : 'Downgrade'}
+                  : 'Switch Plan'}
               </button>
             )}
           </div>
@@ -208,11 +265,32 @@ export default function BillingPage() {
               </p>
             </div>
           </div>
-          <button className="btn btn-secondary btn-sm">
-            {workspace?.stripe_customer_id ? 'Update' : 'Add Card'}
-          </button>
+          {workspace?.stripe_customer_id && (
+            <button
+              onClick={handleManageBilling}
+              className="btn btn-secondary btn-sm"
+            >
+              Manage Billing
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Success/Cancel Messages */}
+      {typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('success') && (
+        <div className="card mt-4 bg-emerald-500/10 border border-emerald-500/20">
+          <p className="text-emerald-400">
+            Payment successful! Your plan has been upgraded.
+          </p>
+        </div>
+      )}
+      {typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('canceled') && (
+        <div className="card mt-4 bg-amber-500/10 border border-amber-500/20">
+          <p className="text-amber-400">
+            Payment was canceled. You can try again anytime.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
