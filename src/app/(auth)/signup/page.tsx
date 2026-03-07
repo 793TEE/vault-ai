@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { Zap, Mail, Lock, User, ArrowRight, Loader2, Check } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Zap, Mail, Lock, User, ArrowRight, Loader2, Check, Gift } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import toast from 'react-hot-toast';
 
@@ -11,9 +11,26 @@ export default function SignupPage() {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [referralCode, setReferralCode] = useState('');
   const [loading, setLoading] = useState(false);
+  const [source, setSource] = useState<string | null>(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
+
+  // Check for referral code and source in URL params
+  useEffect(() => {
+    const ref = searchParams.get('ref') || searchParams.get('referral');
+    const src = searchParams.get('source') || searchParams.get('src');
+
+    if (ref) setReferralCode(ref);
+    if (src) setSource(src);
+
+    // Check if coming from hissecretvault.net
+    if (document.referrer.includes('hissecretvault.net') || src === 'hsv' || src === 'hissecretvault') {
+      setSource('hissecretvault');
+    }
+  }, [searchParams]);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,6 +47,8 @@ export default function SignupPage() {
           email,
           password,
           fullName,
+          source,
+          referralCode: referralCode || null,
         }),
       });
 
@@ -96,7 +115,10 @@ export default function SignupPage() {
 
         <div>
           <p className="text-primary-200 text-sm">
-            14-day free trial • No credit card required • Cancel anytime
+            Free trial • No credit card required • Cancel anytime
+          </p>
+          <p className="text-primary-300/70 text-xs mt-1">
+            HSV members get up to 250 free messages
           </p>
         </div>
       </div>
@@ -166,6 +188,23 @@ export default function SignupPage() {
               </div>
               <p className="text-dark-500 text-sm mt-1.5">
                 Must be at least 8 characters
+              </p>
+            </div>
+
+            <div>
+              <label className="label">Referral Code <span className="text-dark-500">(Optional)</span></label>
+              <div className="relative">
+                <Gift className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-500" />
+                <input
+                  type="text"
+                  value={referralCode}
+                  onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                  className="input pl-11"
+                  placeholder="Enter referral code"
+                />
+              </div>
+              <p className="text-dark-500 text-sm mt-1.5">
+                Paid members get 250 free messages
               </p>
             </div>
 

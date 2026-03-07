@@ -15,9 +15,38 @@ const getServiceClient = () => {
   );
 };
 
+// Valid paid member referral codes (can be stored in DB later)
+const PAID_MEMBER_CODES = [
+  'VAULT2024',
+  'HSVPREMIUM',
+  'VAULTPRO',
+  'SECRETVAULT',
+  'HSVMEMBER',
+];
+
+// Determine message limit and trial based on signup source
+function getSignupTier(source: string | null, referralCode: string | null): {
+  messagesLimit: number;
+  trialDays: number;
+  plan: string;
+} {
+  // Paid member with valid referral code = 250 messages
+  if (referralCode && PAID_MEMBER_CODES.includes(referralCode.toUpperCase())) {
+    return { messagesLimit: 250, trialDays: 14, plan: 'growth' };
+  }
+
+  // From hissecretvault.net = 100 messages
+  if (source === 'hissecretvault' || source === 'hsv') {
+    return { messagesLimit: 100, trialDays: 14, plan: 'starter' };
+  }
+
+  // Regular signup = 25 messages, 7-day trial
+  return { messagesLimit: 25, trialDays: 7, plan: 'starter' };
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const { email, password, fullName } = await request.json();
+    const { email, password, fullName, source, referralCode } = await request.json();
 
     if (!email || !password) {
       return NextResponse.json({ error: 'Email and password are required' }, { status: 400 });
@@ -67,6 +96,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Determine signup tier based on source and referral code
+    const tier = getSignupTier(source, referralCode);
+
+    // Calculate trial end date
+    const trialEndDate = new Date();
+    trialEndDate.setDate(trialEndDate.getDate() + tier.trialDays);
+
     // Create workspace for user
     const slug = `${email.split('@')[0].replace(/[^a-z0-9]/gi, '-').toLowerCase()}-${userId.substring(0, 8)}`;
 
@@ -77,10 +113,11 @@ export async function POST(request: NextRequest) {
         slug,
         owner_id: userId,
         subscription_status: 'trialing',
-        subscription_plan: 'starter',
-        messages_limit: 500,
+        subscription_plan: tier.plan,
+        messages_limit: tier.messagesLimit,
         messages_used: 0,
         ai_enabled: true,
+        current_period_end: trialEndDate.toISOString(),
       })
       .select()
       .single();
