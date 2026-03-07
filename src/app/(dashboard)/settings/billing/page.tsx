@@ -61,26 +61,21 @@ export default function BillingPage() {
   }, []);
 
   const loadWorkspace = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    try {
+      // Use API endpoint to bypass RLS issues
+      const res = await fetch('/api/workspace/settings');
+      const data = await res.json();
 
-    const { data: membership } = await supabase
-      .from('workspace_members')
-      .select('workspace_id')
-      .eq('user_id', user.id)
-      .limit(1)
-      .single();
-
-    if (membership) {
-      const { data: ws } = await supabase
-        .from('workspaces')
-        .select('*')
-        .eq('id', membership.workspace_id)
-        .single();
-
-      setWorkspace(ws);
+      if (res.ok && data.workspace) {
+        setWorkspace(data.workspace);
+      } else {
+        console.error('Failed to load workspace:', data);
+      }
+    } catch (error) {
+      console.error('Error loading workspace:', error);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const [upgrading, setUpgrading] = useState<string | null>(null);
