@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import {
   createCustomer,
   createCheckoutSession,
@@ -13,8 +13,12 @@ import type { SubscriptionPlan } from '@/types/database';
 // POST /api/billing - Create checkout session
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    // Auth client to verify user
+    const authClient = createServerSupabaseClient();
+    const { data: { user } } = await authClient.auth.getUser();
+
+    // Service role client to bypass RLS
+    const supabase = createServiceRoleClient();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -76,8 +80,12 @@ export async function POST(request: NextRequest) {
 // GET /api/billing - Get billing portal URL
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    // Auth client to verify user
+    const authClient = createServerSupabaseClient();
+    const { data: { user } } = await authClient.auth.getUser();
+
+    // Service role client to bypass RLS
+    const supabase = createServiceRoleClient();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
