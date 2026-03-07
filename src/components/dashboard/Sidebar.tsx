@@ -36,7 +36,7 @@ const navItems = [
 ];
 
 // Admin emails that can access admin panel
-const ADMIN_EMAILS = ['infohissecretvault23@gmail.com'];
+const ADMIN_EMAILS = ['infohissecretvault23@gmail.com', 'davistejuan341@gmail.com'];
 
 interface SidebarProps {
   workspace?: {
