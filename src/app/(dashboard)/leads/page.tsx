@@ -360,12 +360,24 @@ export default function LeadsPage() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              window.location.href = `mailto:${lead.email}`;
+                              navigator.clipboard.writeText(lead.email);
+                              toast.success('Email copied!');
                             }}
                             className="p-2 hover:bg-dark-700 rounded-lg"
-                            title="Send Email"
+                            title="Copy Email"
                           >
-                            <MessageSquare className="w-4 h-4 text-dark-400" />
+                            <Mail className="w-4 h-4 text-dark-400" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigator.clipboard.writeText(lead.phone);
+                              toast.success('Phone copied!');
+                            }}
+                            className="p-2 hover:bg-dark-700 rounded-lg"
+                            title="Copy Phone"
+                          >
+                            <Phone className="w-4 h-4 text-dark-400" />
                           </button>
                         </div>
                       </td>
@@ -576,20 +588,26 @@ export default function LeadsPage() {
                 </div>
               )}
               <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-dark-800">
-                <a
-                  href={`mailto:${selectedLead.email}`}
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(selectedLead.email);
+                    toast.success('Email copied!');
+                  }}
                   className="btn btn-secondary flex-1"
                 >
                   <Mail className="w-4 h-4 mr-2" />
-                  Send Email
-                </a>
-                <a
-                  href={`tel:${selectedLead.phone}`}
+                  Copy Email
+                </button>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(selectedLead.phone);
+                    toast.success('Phone copied!');
+                  }}
                   className="btn btn-secondary flex-1"
                 >
                   <Phone className="w-4 h-4 mr-2" />
-                  Call
-                </a>
+                  Copy Phone
+                </button>
                 <button
                   onClick={() => deleteLead(selectedLead.id)}
                   className="btn btn-danger flex-1"
