@@ -1,10 +1,31 @@
 import Stripe from 'stripe';
 import type { SubscriptionPlan } from '@/types/database';
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-06-20',
-  typescript: true,
-});
+// Lazy initialization to avoid build-time errors
+let stripeInstance: Stripe | null = null;
+
+export const getStripe = () => {
+  if (!stripeInstance) {
+    if (!process.env.STRIPE_SECRET_KEY) {
+      throw new Error('STRIPE_SECRET_KEY is not configured');
+    }
+    stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY, {
+      apiVersion: '2024-06-20',
+      typescript: true,
+    });
+  }
+  return stripeInstance;
+};
+
+// For backward compatibility
+export const stripe = {
+  get customers() { return getStripe().customers; },
+  get checkout() { return getStripe().checkout; },
+  get billingPortal() { return getStripe().billingPortal; },
+  get subscriptions() { return getStripe().subscriptions; },
+  get subscriptionItems() { return getStripe().subscriptionItems; },
+  get webhooks() { return getStripe().webhooks; },
+};
 
 export const PLANS: Record<
   SubscriptionPlan,
@@ -61,7 +82,7 @@ export const PLANS: Record<
 };
 
 export async function createCustomer(email: string, name?: string): Promise<Stripe.Customer> {
-  return stripe.customers.create({
+  return getStripe().customers.create({
     email,
     name,
     metadata: {
@@ -77,7 +98,7 @@ export async function createCheckoutSession(
 ): Promise<Stripe.Checkout.Session> {
   const planConfig = PLANS[plan];
 
-  return stripe.checkout.sessions.create({
+  return getStripe().checkout.sessions.create({
     customer: customerId,
     mode: 'subscription',
     payment_method_types: ['card'],
@@ -104,7 +125,7 @@ export async function createCheckoutSession(
 }
 
 export async function createPortalSession(customerId: string): Promise<Stripe.BillingPortal.Session> {
-  return stripe.billingPortal.sessions.create({
+  return getStripe().billingPortal.sessions.create({
     customer: customerId,
     return_url: `${process.env.NEXT_PUBLIC_APP_URL}/settings/billing`,
   });
@@ -112,7 +133,7 @@ export async function createPortalSession(customerId: string): Promise<Stripe.Bi
 
 export async function getSubscription(subscriptionId: string): Promise<Stripe.Subscription | null> {
   try {
-    return await stripe.subscriptions.retrieve(subscriptionId);
+    return await getStripe().subscriptions.retrieve(subscriptionId);
   } catch (error) {
     console.error('Error fetching subscription:', error);
     return null;
@@ -120,13 +141,13 @@ export async function getSubscription(subscriptionId: string): Promise<Stripe.Su
 }
 
 export async function cancelSubscription(subscriptionId: string): Promise<Stripe.Subscription> {
-  return stripe.subscriptions.update(subscriptionId, {
+  return getStripe().subscriptions.update(subscriptionId, {
     cancel_at_period_end: true,
   });
 }
 
 export async function resumeSubscription(subscriptionId: string): Promise<Stripe.Subscription> {
-  return stripe.subscriptions.update(subscriptionId, {
+  return getStripe().subscriptions.update(subscriptionId, {
     cancel_at_period_end: false,
   });
 }
@@ -135,10 +156,10 @@ export async function updateSubscription(
   subscriptionId: string,
   newPlan: SubscriptionPlan
 ): Promise<Stripe.Subscription> {
-  const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+  const subscription = await getStripe().subscriptions.retrieve(subscriptionId);
   const planConfig = PLANS[newPlan];
 
-  return stripe.subscriptions.update(subscriptionId, {
+  return getStripe().subscriptions.update(subscriptionId, {
     items: [
       {
         id: subscription.items.data[0].id,
@@ -156,7 +177,7 @@ export async function createUsageRecord(
   subscriptionItemId: string,
   quantity: number
 ): Promise<Stripe.UsageRecord> {
-  return stripe.subscriptionItems.createUsageRecord(subscriptionItemId, {
+  return getStripe().subscriptionItems.createUsageRecord(subscriptionItemId, {
     quantity,
     timestamp: Math.floor(Date.now() / 1000),
     action: 'increment',
@@ -167,7 +188,7 @@ export function constructWebhookEvent(
   body: string,
   signature: string
 ): Stripe.Event {
-  return stripe.webhooks.constructEvent(
+  return getStripe().webhooks.constructEvent(
     body,
     signature,
     process.env.STRIPE_WEBHOOK_SECRET!
