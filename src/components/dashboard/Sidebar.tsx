@@ -19,6 +19,7 @@ import {
   X,
   User,
   Code,
+  Home,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -138,6 +139,15 @@ export default function Sidebar({ workspace, userEmail }: SidebarProps) {
         {userEmail && (
           <p className="text-xs text-dark-500 mb-3 truncate px-3">{userEmail}</p>
         )}
+        <a
+          href="https://hissecretvault.net"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="sidebar-link w-full text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 mb-1"
+        >
+          <Home className="w-5 h-5" />
+          His Secret Vault
+        </a>
         <button
           onClick={handleSignOut}
           className="sidebar-link w-full text-red-400 hover:text-red-300 hover:bg-red-500/10"
