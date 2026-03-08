@@ -184,7 +184,7 @@ export default function AdminUsersPage() {
                             <div>
                               <div className="flex items-center gap-2">
                                 <p className="font-medium text-white">{user.full_name || 'No name'}</p>
-                                {user.email === 'infohissecretvault23@gmail.com' && (
+                                {(['infohissecretvault23@gmail.com', 'davistejuan341@gmail.com'].includes(user.email)) && (
                                   <Shield className="w-4 h-4 text-amber-400" />
                                 )}
                               </div>
