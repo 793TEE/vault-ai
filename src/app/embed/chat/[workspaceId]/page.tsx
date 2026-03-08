@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { MessageSquare, Send, X, Minimize2 } from 'lucide-react';
+import { MessageSquare, Send } from 'lucide-react';
 
 interface Message {
   id: string;
@@ -11,7 +11,6 @@ interface Message {
 }
 
 export default function ChatWidget({ params }: { params: { workspaceId: string } }) {
-  const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -99,33 +98,22 @@ export default function ChatWidget({ params }: { params: { workspaceId: string }
   };
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 font-sans">
-      {/* Chat Window */}
-      {isOpen && (
-        <div className="mb-4 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-200 animate-in slide-in-from-bottom-5 duration-300">
-          {/* Header */}
-          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-                  <MessageSquare className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-white">Chat with us</h3>
-                  <p className="text-xs text-white/70">We typically reply instantly</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setIsOpen(false)}
-                className="p-1 text-white/70 hover:text-white transition-colors"
-              >
-                <Minimize2 className="w-5 h-5" />
-              </button>
-            </div>
+    <div className="h-screen w-full flex flex-col font-sans bg-gray-50">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+            <MessageSquare className="w-5 h-5 text-white" />
           </div>
+          <div>
+            <h3 className="font-semibold text-white">Chat with us</h3>
+            <p className="text-xs text-white/70">We typically reply instantly</p>
+          </div>
+        </div>
+      </div>
 
-          {/* Content */}
-          <div className="h-80 overflow-y-auto p-4 bg-gray-50">
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
             {showForm ? (
               <form onSubmit={handleStartChat} className="space-y-4">
                 <div className="text-center mb-6">
@@ -194,60 +182,42 @@ export default function ChatWidget({ params }: { params: { workspaceId: string }
                 <div ref={messagesEndRef} />
               </div>
             )}
-          </div>
+        </div>
 
-          {/* Input */}
-          {!showForm && (
-            <div className="p-4 bg-white border-t border-gray-200">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                  placeholder="Type a message..."
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-800"
-                />
-                <button
-                  onClick={handleSend}
-                  disabled={!input.trim() || isLoading}
-                  className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
-                >
-                  <Send className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Powered by */}
-          <div className="px-4 py-2 bg-gray-100 text-center">
-            <a
-              href="https://my-vaultais.vercel.app"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-gray-500 hover:text-indigo-600 transition-colors"
+      {/* Input */}
+      {!showForm && (
+        <div className="p-4 bg-white border-t border-gray-200">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+              placeholder="Type a message..."
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-800"
+            />
+            <button
+              onClick={handleSend}
+              disabled={!input.trim() || isLoading}
+              className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
             >
-              Powered by Vault AI
-            </a>
+              <Send className="w-5 h-5" />
+            </button>
           </div>
         </div>
       )}
 
-      {/* Toggle Button */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className={`w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all duration-300 ${
-          isOpen
-            ? 'bg-gray-800 rotate-0'
-            : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:scale-110'
-        }`}
-      >
-        {isOpen ? (
-          <X className="w-6 h-6 text-white" />
-        ) : (
-          <MessageSquare className="w-6 h-6 text-white" />
-        )}
-      </button>
+      {/* Powered by */}
+      <div className="px-4 py-2 bg-gray-100 text-center">
+        <a
+          href="https://my-vaultais.vercel.app"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs text-gray-500 hover:text-indigo-600 transition-colors"
+        >
+          Powered by Vault AI
+        </a>
+      </div>
     </div>
   );
 }
