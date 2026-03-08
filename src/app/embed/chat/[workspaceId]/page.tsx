@@ -72,29 +72,41 @@ export default function ChatWidget({ params }: { params: { workspaceId: string }
       timestamp: new Date(),
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    const updatedMessages = [...messages, userMessage];
+    setMessages(updatedMessages);
     setInput('');
     setIsLoading(true);
 
-    // Simulate AI response (in production, this would call your AI endpoint)
-    setTimeout(() => {
-      const responses = [
-        "That's a great question! Let me help you with that.",
-        "I understand. Would you like to schedule a call to discuss this further?",
-        "Absolutely! We specialize in exactly that. Can you tell me more about your specific needs?",
-        "Thanks for sharing that. Based on what you've told me, I think we'd be a great fit. Want me to send you our booking link?",
-      ];
+    try {
+      const res = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workspaceId: params.workspaceId,
+          visitorName: visitorInfo.name,
+          visitorEmail: visitorInfo.email,
+          messages: updatedMessages.map(m => ({ role: m.role, content: m.content })),
+        }),
+      });
 
+      const data = await res.json();
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: responses[Math.floor(Math.random() * responses.length)],
+        content: data.reply || "I'm here to help! What can I assist you with?",
         timestamp: new Date(),
       };
-
       setMessages(prev => [...prev, aiMessage]);
+    } catch {
+      setMessages(prev => [...prev, {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: "Sorry, I'm having trouble connecting. Please try again.",
+        timestamp: new Date(),
+      }]);
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   return (
