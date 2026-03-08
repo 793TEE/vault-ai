@@ -9,6 +9,7 @@ export default function EmbedSettingsPage() {
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const supabase = createClient();
 
@@ -30,11 +31,16 @@ export default function EmbedSettingsPage() {
 
       // If no workspace exists, create one
       if (!membership) {
+        console.log('No workspace found, creating one...');
         const response = await fetch('/api/init-workspace', {
           method: 'POST',
           credentials: 'include',
         });
         const result = await response.json();
+        console.log('Init workspace result:', result);
+        if (result.error) {
+          setError(result.error);
+        }
         if (result.workspaceId) {
           setWorkspaceId(result.workspaceId);
           return;
@@ -62,6 +68,36 @@ export default function EmbedSettingsPage() {
     return (
       <div className="flex items-center justify-center h-96">
         <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 bg-red-500/10 border border-red-500/30 rounded-lg">
+        <h2 className="text-xl font-bold text-red-400 mb-2">Error Creating Workspace</h2>
+        <p className="text-red-300">{error}</p>
+        <button
+          onClick={() => { setError(null); setLoading(true); loadWorkspace(); }}
+          className="mt-4 btn btn-primary"
+        >
+          Try Again
+        </button>
+      </div>
+    );
+  }
+
+  if (!workspaceId) {
+    return (
+      <div className="p-6 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+        <h2 className="text-xl font-bold text-amber-400 mb-2">No Workspace Found</h2>
+        <p className="text-amber-300 mb-4">Unable to create workspace. Please try again.</p>
+        <button
+          onClick={() => { setLoading(true); loadWorkspace(); }}
+          className="btn btn-primary"
+        >
+          Create Workspace
+        </button>
       </div>
     );
   }
