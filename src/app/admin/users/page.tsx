@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Users, Search, Loader2, Trash2, Edit, ChevronLeft, ChevronRight, Plus, Mail, Shield } from 'lucide-react';
+import { Users, Search, Loader2, Trash2, Edit, ChevronLeft, ChevronRight, Plus, Mail, Shield, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function AdminUsersPage() {
@@ -12,6 +12,10 @@ export default function AdminUsersPage() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+  const [editUser, setEditUser] = useState<any>(null);
+  const [editPlan, setEditPlan] = useState('');
+  const [editStatus, setEditStatus] = useState('');
+  const [saving, setSaving] = useState(false);
   const limit = 20;
 
   useEffect(() => {
@@ -225,12 +229,21 @@ export default function AdminUsersPage() {
                             <button
                               onClick={() => {
                                 const ws = user.workspace_members?.[0]?.workspace;
-                                if (ws) {
-                                  window.location.href = `/admin/workspaces/${ws.id}`;
-                                }
+                                setEditUser(user);
+                                setEditPlan(ws?.subscription_plan || 'starter');
+                                setEditStatus(ws?.subscription_status || 'trialing');
+                              }}
+                              className="text-sm text-primary-400 hover:text-primary-300"
+                            >
+                              Manage
+                            </button>
+                            <button
+                              onClick={() => {
+                                const ws = user.workspace_members?.[0]?.workspace;
+                                if (ws) window.location.href = `/admin/workspaces/${ws.id}`;
                               }}
                               className="text-sm text-blue-400 hover:text-blue-300"
-                              disabled={!workspace}
+                              disabled={!user.workspace_members?.[0]?.workspace}
                             >
                               View WS
                             </button>
@@ -273,6 +286,73 @@ export default function AdminUsersPage() {
           </div>
         )}
       </main>
+
+      {/* Edit User Modal */}
+      {editUser && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-dark-900 border border-dark-800 rounded-xl p-6 w-full max-w-md">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold text-white">Manage User</h3>
+              <button onClick={() => setEditUser(null)} className="text-dark-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="mb-2 text-sm text-dark-400">{editUser.email}</div>
+            <div className="mb-4">
+              <label className="block text-sm text-dark-400 mb-2">Subscription Plan</label>
+              <select
+                value={editPlan}
+                onChange={e => setEditPlan(e.target.value)}
+                className="w-full px-3 py-2 bg-dark-800 border border-dark-700 rounded-lg text-white focus:border-primary-500 focus:outline-none"
+              >
+                <option value="starter">Starter — 500 messages</option>
+                <option value="growth">Growth — 2,000 messages</option>
+                <option value="scale">Scale — Unlimited</option>
+              </select>
+            </div>
+            <div className="mb-6">
+              <label className="block text-sm text-dark-400 mb-2">Status</label>
+              <select
+                value={editStatus}
+                onChange={e => setEditStatus(e.target.value)}
+                className="w-full px-3 py-2 bg-dark-800 border border-dark-700 rounded-lg text-white focus:border-primary-500 focus:outline-none"
+              >
+                <option value="trialing">Free Trial</option>
+                <option value="active">Active (Paid)</option>
+                <option value="cancelled">Cancelled</option>
+                <option value="past_due">Past Due</option>
+              </select>
+            </div>
+            <button
+              onClick={async () => {
+                setSaving(true);
+                try {
+                  const res = await fetch(`/api/admin/users/${editUser.id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ plan: editPlan, subscription_status: editStatus }),
+                  });
+                  const data = await res.json();
+                  if (res.ok) {
+                    toast.success('User updated!');
+                    setEditUser(null);
+                    loadUsers();
+                  } else {
+                    toast.error(data.error || 'Failed to update');
+                  }
+                } finally {
+                  setSaving(false);
+                }
+              }}
+              disabled={saving}
+              className="w-full py-2 bg-gradient-to-r from-primary-600 to-primary-700 text-white rounded-lg font-medium hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+              Save Changes
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

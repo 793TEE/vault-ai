@@ -76,7 +76,7 @@ export async function GET(
   }
 }
 
-// PATCH - Update user
+// PATCH - Update user (plan, admin status, profile)
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -88,42 +88,52 @@ export async function PATCH(
 
     const userId = params.id;
     const body = await request.json();
-    const { email, full_name, avatar_url } = body;
+    const { email, full_name, plan, messages_limit, subscription_status } = body;
 
     const supabase = getServiceClient();
 
-    // Update user record
-    const { data: user, error: userError } = await supabase
-      .from('users')
-      .update({
-        email,
-        full_name,
-        avatar_url,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', userId)
-      .select()
-      .single();
-
-    if (userError) {
-      console.error('User update error:', userError);
-      return NextResponse.json({ error: userError.message }, { status: 500 });
-    }
-
-    // Update auth metadata if email or name changed
+    // Update user profile if provided
     if (email || full_name) {
-      const updateData: any = {};
-      if (email) updateData.email = email;
-      if (full_name || avatar_url) {
-        updateData.user_metadata = {
-          full_name: full_name || user.full_name,
-          avatar_url: avatar_url || user.avatar_url,
-        };
-      }
+      await supabase.from('users').update({
+        ...(email && { email }),
+        ...(full_name && { full_name }),
+        updated_at: new Date().toISOString(),
+      }).eq('id', userId);
 
-      await supabase.auth.admin.updateUserById(userId, updateData);
+      if (email || full_name) {
+        await supabase.auth.admin.updateUserById(userId, {
+          ...(email && { email }),
+          ...(full_name && { user_metadata: { full_name } }),
+        });
+      }
     }
 
+    // Update workspace plan/limits if provided
+    if (plan || messages_limit !== undefined || subscription_status) {
+      const { data: membership } = await supabase
+        .from('workspace_members')
+        .select('workspace_id')
+        .eq('user_id', userId)
+        .limit(1)
+        .single();
+
+      if (membership) {
+        const planLimits: Record<string, number> = {
+          starter: 500,
+          growth: 2000,
+          scale: 999999999,
+        };
+
+        await supabase.from('workspaces').update({
+          ...(plan && { subscription_plan: plan }),
+          ...(plan && { messages_limit: planLimits[plan] ?? messages_limit ?? 500 }),
+          ...(messages_limit !== undefined && { messages_limit }),
+          ...(subscription_status && { subscription_status }),
+        }).eq('id', membership.workspace_id);
+      }
+    }
+
+    const { data: user } = await supabase.from('users').select('*').eq('id', userId).single();
     return NextResponse.json({ success: true, user });
   } catch (error: any) {
     console.error('Admin user PATCH error:', error);
