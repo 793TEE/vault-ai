@@ -15,7 +15,7 @@ import {
 // Admin emails - add your email here
 const ADMIN_EMAILS = [
   'infohissecretvault23@gmail.com',
-  // Add more admin emails as needed
+  'davistejuan341@gmail.com',
 ];
 
 async function getAdminStats() {
