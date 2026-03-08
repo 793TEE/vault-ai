@@ -3,7 +3,7 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 
-export const ADMIN_EMAILS = ['infohissecretvault23@gmail.com', 'davistejuan341@gmail.com'];
+export const ADMIN_EMAILS = ['davistejuan341@gmail.com'];
 
 // Service role client to bypass RLS
 export const getServiceClient = () => {

@@ -47,7 +47,7 @@ interface Workspace {
   };
 }
 
-const ADMIN_EMAILS = ['infohissecretvault23@gmail.com'];
+const ADMIN_EMAILS = ['davistejuan341@gmail.com'];
 
 export default function AdminSettingsPage() {
   const router = useRouter();

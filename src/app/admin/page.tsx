@@ -14,7 +14,6 @@ import {
 
 // Admin emails - add your email here
 const ADMIN_EMAILS = [
-  'infohissecretvault23@gmail.com',
   'davistejuan341@gmail.com',
 ];
 

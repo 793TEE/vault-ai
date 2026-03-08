@@ -2,7 +2,7 @@ import { updateSession } from '@/lib/supabase/middleware';
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
-const ADMIN_EMAILS = ['infohissecretvault23@gmail.com', 'davistejuan341@gmail.com'];
+const ADMIN_EMAILS = ['davistejuan341@gmail.com'];
 
 export async function middleware(request: NextRequest) {
   // Handle auth session

@@ -92,20 +92,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: authError.message }, { status: 500 });
     }
 
-    // Create user record
+    // Upsert user record (trigger may have already created it)
     const { data: user, error: userError } = await supabase
       .from('users')
-      .insert({
+      .upsert({
         id: authUser.user.id,
         email,
         full_name: full_name || '',
-      })
+      }, { onConflict: 'id' })
       .select()
       .single();
 
     if (userError) {
       console.error('User record error:', userError);
-      // Clean up auth user if user record creation fails
       await supabase.auth.admin.deleteUser(authUser.user.id);
       return NextResponse.json({ error: userError.message }, { status: 500 });
     }
