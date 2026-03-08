@@ -20,7 +20,7 @@
     // Create container
     container = document.createElement('div');
     container.id = 'vault-ai-widget-container';
-    container.style.cssText = 'position: fixed; bottom: 20px; right: 20px; z-index: 99999; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;';
+    container.style.cssText = 'position: fixed; bottom: 20px; left: 20px; z-index: 99999; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;';
 
     // Create chat bubble button
     bubble = document.createElement('button');
@@ -40,7 +40,7 @@
     // Create iframe container (hidden initially)
     var iframeContainer = document.createElement('div');
     iframeContainer.id = 'vault-ai-chat-container';
-    iframeContainer.style.cssText = 'display: none; position: absolute; bottom: 70px; right: 0; width: 380px; height: 550px; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.3); background: #1a1a2e;';
+    iframeContainer.style.cssText = 'display: none; position: absolute; bottom: 70px; left: 0; width: 380px; height: 550px; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.3); background: #1a1a2e;';
 
     // Create iframe
     iframe = document.createElement('iframe');
@@ -57,7 +57,7 @@
     if (window.innerWidth < 500) {
       iframeContainer.style.width = 'calc(100vw - 40px)';
       iframeContainer.style.height = '70vh';
-      iframeContainer.style.right = '-10px';
+      iframeContainer.style.left = '-10px';
     }
   }
 
