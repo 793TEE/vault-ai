@@ -13,6 +13,27 @@ const nextConfig = {
       },
     ],
   },
+  async headers() {
+    return [
+      {
+        // Allow embed routes to be iframed from any domain
+        source: '/embed/:path*',
+        headers: [
+          { key: 'X-Frame-Options', value: 'ALLOWALL' },
+          { key: 'Content-Security-Policy', value: "frame-ancestors *" },
+          { key: 'Access-Control-Allow-Origin', value: '*' },
+        ],
+      },
+      {
+        // Allow chat-widget.js to be loaded from any domain
+        source: '/chat-widget.js',
+        headers: [
+          { key: 'Access-Control-Allow-Origin', value: '*' },
+          { key: 'Cache-Control', value: 'public, max-age=3600' },
+        ],
+      },
+    ];
+  },
 };
 
 module.exports = nextConfig;

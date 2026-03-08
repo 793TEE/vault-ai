@@ -73,7 +73,9 @@
     }
   }
 
-  // Process queue
+  // Save any queued calls before overriding
+  var pendingQueue = (window.vaultai && window.vaultai.q) ? window.vaultai.q : [];
+
   window.vaultai = function() {
     var args = Array.prototype.slice.call(arguments);
     if (args[0] === 'init') {
@@ -82,10 +84,7 @@
   };
 
   // Process any queued calls
-  if (window.vaultai && window.vaultai.q) {
-    var queue = window.vaultai.q;
-    for (var i = 0; i < queue.length; i++) {
-      window.vaultai.apply(null, queue[i]);
-    }
+  for (var i = 0; i < pendingQueue.length; i++) {
+    window.vaultai.apply(null, pendingQueue[i]);
   }
 })();
