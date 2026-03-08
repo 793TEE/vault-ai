@@ -39,7 +39,7 @@ export default function EmbedSettingsPage() {
         const result = await response.json();
         console.log('Init workspace result:', result);
         if (result.error) {
-          setError(result.error);
+          setError(`${result.error}${result.details ? ': ' + result.details : ''}`);
         }
         if (result.workspaceId) {
           setWorkspaceId(result.workspaceId);

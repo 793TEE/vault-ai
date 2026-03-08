@@ -52,7 +52,11 @@ export async function POST() {
 
       if (insertUserError) {
         console.error('Error creating user:', insertUserError);
-        return NextResponse.json({ error: 'Failed to create user record' }, { status: 500 });
+        return NextResponse.json({
+          error: 'Failed to create user record',
+          details: insertUserError.message,
+          code: insertUserError.code
+        }, { status: 500 });
       }
     }
 
@@ -90,7 +94,11 @@ export async function POST() {
 
     if (workspaceError) {
       console.error('Error creating workspace:', workspaceError);
-      return NextResponse.json({ error: 'Failed to create workspace' }, { status: 500 });
+      return NextResponse.json({
+        error: 'Failed to create workspace',
+        details: workspaceError.message,
+        code: workspaceError.code
+      }, { status: 500 });
     }
 
     // Add user as owner of the workspace
